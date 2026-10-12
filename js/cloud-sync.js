@@ -154,6 +154,13 @@
 
     users: function () { return get(K_USERS_CACHE, []); },
 
+    // 管理員：重設密碼（action="reset"）或刪除帳號（action="delete"）
+    adminUser: async function (action, profileId, password) {
+      var r = await window.CloudDB.adminUser(action, profileId, password);
+      warn(action === "reset" ? "重設密碼" : "刪除帳號", r);
+      return r;
+    },
+
     setDisabled: async function (profileId, flag) {
       var r = await window.CloudDB.setDisabled(profileId, flag);
       warn("停用／啟用帳號", r);

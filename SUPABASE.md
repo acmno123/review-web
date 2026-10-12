@@ -58,3 +58,19 @@
 - **社群**：可以看到所有公開學習狀況的使用者，依完成單元數排序。
 - **個人檔案**：點導覽列的「個人檔案」，可以勾選或取消「公開我的學習狀況」。
 - **聊天室**：所有登入的使用者都可以發言，每 5 秒自動更新。可以收回自己的訊息；管理員可以刪除任何訊息（需在資料庫的 `chat_messages` 上操作，網站目前只提供收回自己的訊息）。
+
+## 第四步：部署管理員 Edge Function（重設密碼、刪除帳號）
+重設密碼與刪除帳號需要服務金鑰，所以放在 Supabase Edge Function 中執行，網頁不會接觸到服務金鑰。
+
+**方法一：用 Supabase 後台（不需要安裝任何工具）**
+1. 到 **Edge Functions** → **Deploy a new function** → 選 **Via editor**。
+2. 函式名稱填 `admin-users`。
+3. 把 `supabase/functions/admin-users/index.ts` 的內容整段貼上，按 **Deploy**。
+4. 不需要另外設定密鑰；`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` 會由 Supabase 自動提供。
+
+**方法二：用 CLI**
+```bash
+supabase functions deploy admin-users
+```
+
+部署後，管理後台的帳號列表就能重設密碼與刪除帳號。函式會再次確認呼叫者是 `role = 'admin'` 且未停用，一般使用者即使知道這個網址也無法使用。

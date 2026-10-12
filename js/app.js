@@ -922,16 +922,20 @@
   function adminUsersCloud() {
     var list = CloudSync.users(), me = currentUser();
     var html = '<section class="panel"><h2>帳號列表（雲端）</h2><p class="muted">共 ' + list.length +
-      ' 個帳號。可以停用或啟用帳號。重設密碼與刪除帳號需要後端函式，目前請到 Supabase 後台處理。</p>' +
+      ' 個帳號。可以停用、啟用、重設密碼或刪除帳號（你自己的帳號無法操作）。</p>' +
       '<div class="table-wrap"><table class="table"><tr><th>帳號</th><th>暱稱</th><th>身分</th><th>建立日期</th><th>狀態</th><th>操作</th></tr>';
     list.forEach(function (p, i) {
+      var ops = p.username === me ? '<span class="muted">（目前登入）</span>' :
+        '<div class="inline">' +
+        '<button class="btn btn-sm" data-action="cuser-toggle" data-i="' + i + '">' + (p.disabled ? "啟用" : "停用") + '</button>' +
+        '<input type="password" id="cnp-' + i + '" placeholder="新密碼" style="max-width:130px">' +
+        '<button class="btn btn-sm" data-action="cuser-reset" data-i="' + i + '">重設密碼</button>' +
+        '<button class="btn btn-sm btn-danger" data-action="cuser-del" data-i="' + i + '">刪除</button></div>';
       html += '<tr><td><strong>' + esc(p.username) + '</strong></td><td>' + esc(p.nickname || "—") + '</td><td>' +
         (p.role === "admin" ? '<span class="admin-badge">管理員</span>' : '一般') + '</td><td>' +
         (p.created_at ? fmtDate(Date.parse(p.created_at)) : "-") + '</td><td>' +
         (p.disabled ? '<span class="badge">已停用</span>' : '<span class="rstatus done">正常</span>') + '</td><td>' +
-        (p.username === me ? '<span class="muted">（目前登入）</span>' :
-          '<button class="btn btn-sm" data-action="cuser-toggle" data-i="' + i + '">' + (p.disabled ? "啟用" : "停用") + '</button>') +
-        '</td></tr>';
+        ops + '</td></tr>';
     });
     return html + '</table></div></section>';
   }
@@ -1212,6 +1216,29 @@
     if (action === "mreset") { mockState = { phase: "setup" }; render(); return; }
 
     /* 管理員 */
+    if (action === "cuser-reset" || action === "cuser-del") {
+      var tp = CloudSync.users()[Number(el.getAttribute("data-i"))];
+      if (!tp || tp.username === currentUser()) return;
+      if (action === "cuser-reset") {
+        var npw = document.getElementById("cnp-" + el.getAttribute("data-i"));
+        var pw = npw ? npw.value : "";
+        if (pw.length < 6) { toast("新密碼至少 6 個字元", true); return; }
+        CloudSync.adminUser("reset", tp.id, pw).then(function (r) {
+          if (r.error) { toast(r.error, true); return; }
+          toast("已重設「" + tp.username + "」的密碼");
+          if (npw) npw.value = "";
+        });
+        return;
+      }
+      if (!confirm("確定刪除帳號「" + tp.username + "」？學習紀錄會一併刪除，無法復原。")) return;
+      CloudSync.adminUser("delete", tp.id).then(function (r) {
+        if (r.error) { toast(r.error, true); return; }
+        toast("已刪除帳號「" + tp.username + "」");
+        window.__usersFresh = false;
+        CloudSync.refreshUsers().then(render);
+      });
+      return;
+    }
     if (action === "cuser-toggle") {
       var cp = CloudSync.users()[Number(el.getAttribute("data-i"))];
       if (!cp || cp.username === currentUser()) return;
@@ -1231,8 +1258,6 @@
       render();
       return;
     }
-    if (action === "auser-reset" && CloudSync.enabled()) { toast("雲端模式下無法在網站內重設密碼，請到 Supabase 後台處理", true); return; }
-    if (action === "auser-del" && CloudSync.enabled()) { toast("雲端模式下無法在網站內刪除帳號，請到 Supabase 後台處理", true); return; }
     if (action === "auser-reset") { adminResetPassword(Number(el.getAttribute("data-i"))); return; }
     if (action === "auser-del") { adminDeleteUser(Number(el.getAttribute("data-i"))); return; }
     if (action === "uhide") {
@@ -1466,7 +1491,7 @@
     };
   };
   window.AppKit = {
-    esc: esc, toast: toast, render: render, ICON: ICON, COLOR: COLOR, fmtDate: fmtDate
+    esc: esc, toast: toast, render: render, ICON: ICON, COLOR: COLOR, fmtDate: fmtDate, isAdmin: isAdmin
   };
 
   window.addEventListener("hashchange", render);

@@ -302,6 +302,25 @@
     },
 
     currentUserId: function () { need(); return currentUserId(); }
+    ,
+
+    /* ---------- 管理員：重設密碼、刪除帳號（透過 Edge Function，服務金鑰只在伺服器端） ---------- */
+    adminUser: async function (action, userId, password) {
+      need();
+      var res = await client.functions.invoke("admin-users", {
+        body: { action: action, userId: userId, password: password || "" }
+      });
+      if (res.error) {
+        var msg = res.error.message || "操作失敗";
+        try {
+          var ctx = res.error.context && (await res.error.context.json());
+          if (ctx && ctx.error) msg = ctx.error;
+        } catch (e) { /* 忽略解析錯誤，使用預設訊息 */ }
+        return { data: null, error: msg };
+      }
+      if (res.data && res.data.error) return { data: null, error: res.data.error };
+      return { data: res.data, error: null };
+    }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列

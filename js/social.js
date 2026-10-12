@@ -168,7 +168,7 @@
         (mine ? '' : '<div class="bubble-name">' + esc(displayName(p)) + '</div>') +
         '<div class="bubble-text">' + esc(m.body) + '</div>' +
         '<div class="bubble-meta">' + time +
-        (mine ? ' <button class="linklike-sm" data-action="social-chat-del" data-id="' + m.id + '">收回</button>' : '') +
+        (mine || kit().isAdmin() ? ' <button class="linklike-sm" data-action="social-chat-del" data-id="' + m.id + '">' + (mine ? "收回" : "刪除（管理員）") + '</button>' : '') +
         '</div></div></div>';
     }).join("");
     if (atBottom) list.scrollTop = list.scrollHeight;
