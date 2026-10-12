@@ -200,25 +200,32 @@
   G.englishBe = function () {
     var s = pick([["I", "am"], ["You", "are"], ["We", "are"], ["They", "are"],
                   ["He", "is"], ["She", "is"], ["It", "is"]]);
-    return { q: s[0] + " ___ a student.（填 am / is / are）", a: s[1] };
+    var others = ["am", "is", "are"].filter(function (x) { return x !== s[1]; });
+    return { q: "請選出正確的 be 動詞：" + s[0] + " ____ a student.", a: s[1], d: others.concat(["be"]) };
   };
   G.englishThird = function () {
-    var v = pick([
-      ["go", "goes", "to school every day"], ["play", "plays", "basketball after school"],
-      ["study", "studies", "English at night"], ["watch", "watches", "TV in the evening"],
-      ["have", "has", "breakfast at seven"], ["do", "does", "homework after dinner"]
-    ]);
+    // [原形, 第三人稱單數, 現在分詞, 過去式, 句尾]
+    var verbs = [["go", "goes", "going", "went", "to school every day"],
+      ["play", "plays", "playing", "played", "basketball after school"],
+      ["study", "studies", "studying", "studied", "English at night"],
+      ["watch", "watches", "watching", "watched", "TV in the evening"],
+      ["have", "has", "having", "had", "breakfast at seven"],
+      ["do", "does", "doing", "did", "homework after dinner"]];
+    var v = pick(verbs);
     var s = pick(["He", "She"]);
-    return { q: s + " (" + v[0] + ") " + v[2] + ". 請填入動詞的正確形式", a: v[1] };
+    return { q: "請選出 " + v[0] + " 的正確形式：" + s + " ____ " + v[4] + ".", a: v[1], d: [v[0], v[2], v[3]] };
   };
   G.englishIng = function () {
-    var v = pick([
-      ["play", "playing", "basketball"], ["run", "running", "in the park"],
+    var v = pick([["play", "playing", "basketball"], ["run", "running", "in the park"],
       ["study", "studying", "English"], ["make", "making", "a cake"],
-      ["write", "writing", "a letter"], ["swim", "swimming", "in the pool"]
-    ]);
+      ["write", "writing", "a letter"], ["swim", "swimming", "in the pool"]]);
     var sb = pick([["They", "are"], ["We", "are"], ["I", "am"]]);
-    return { q: "請寫出現在進行式：" + sb[0] + " " + v[0] + " " + v[2] + ".", a: sb[0] + " " + sb[1] + " " + v[1] + " " + v[2] + "." };
+    var ans = sb[0] + " " + sb[1] + " " + v[1] + " " + v[2] + ".";
+    return {
+      q: "請選出正確的現在進行式：" + sb[0] + " " + v[0] + " " + v[2] + ".",
+      a: ans,
+      d: [sb[0] + " " + v[0] + " " + v[2] + ".", sb[0] + " " + sb[1] + " " + v[0] + " " + v[2] + ".", sb[0] + " " + v[1] + " " + v[2] + "."]
+    };
   };
   G.comparative = function () {
     var adj = pick([["tall", "taller"], ["big", "bigger"], ["happy", "happier"],
@@ -230,13 +237,13 @@
     var v = pick([["see", "seen", "that movie"], ["eat", "eaten", "sushi"],
                   ["visit", "visited", "Taipei"], ["write", "written", "a letter"]]);
     var subj = pick([["I", "have"], ["We", "have"], ["They", "have"], ["He", "has"], ["She", "has"]]);
+    var other = subj[1] === "have" ? "has" : "have";
     if (lv === 3) {
-      return { q: "請用現在完成式的否定句：" + subj[0] + " (" + v[0] + ") " + v[2] + " before.", a: subj[1] + " not " + v[1] };
+      return { q: "請選出否定句的正確形式：" + subj[0] + " ____ not " + v[1] + " " + v[2] + " before.", a: subj[1] + " not " + v[1], d: [other + " not " + v[1], "had not " + v[1], subj[1] + " not " + v[0]] };
     }
-    return { q: subj[0] + " (" + v[0] + ") " + v[2] + " before. 請用現在完成式", a: subj[1] + " " + v[1] };
+    return { q: "請選出 " + v[0] + " 的正確形式：" + subj[0] + " ____ " + v[2] + " before.", a: subj[1] + " " + v[1], d: [other + " " + v[1], "had " + v[1], subj[1] + " " + v[0]] };
   };
 
-  /* ---------- 取得下一題 ---------- */
   /* ---------- 日文版題型（與中文版數學、理化題對應） ---------- */
   var JA = {
     absValue: function () { var a = ri(1, 30); return { q: "次の絶対値を求めなさい：|" + (-a) + "|", a: String(a) }; },
@@ -262,7 +269,7 @@
    * level：0 混合、1–4 指定難度
    * lang ："zh"（中文，預設）或 "ja"（日文版）
    * 若單元沒有日文版題目，回傳 missing: true */
-  function next(unit, lastQ, level, lang) {
+  function nextRaw(unit, lastQ, level, lang) {
     level = level || 0;
     var ja = lang === "ja";
     var pool = [];
@@ -357,6 +364,19 @@
     }
   });
 
+  // 清理題目文字：移除列出選項的括號（選項會以按鈕顯示）與「（填…）」類提示
+  function cleanQ(q) {
+    return String(q)
+      .replace(/\s*[（(][^）)]*(\/|或)[^）)]*[）)]/g, "")
+      .replace(/\s*[（(](填|問|請)[^）)]*[）)]/g, "")
+      .replace(/\s+$/, "");
+  }
+  function next(unit, lastQ, level, lang) {
+    var r = nextRaw(unit, lastQ, level, lang);
+    if (r && r.q) r.q = cleanQ(r.q);
+    return r;
+  }
+
   /* ---------- 標準化與比對 ---------- */
   function normalize(s) {
     return String(s).trim().toLowerCase()
@@ -381,5 +401,5 @@
     return false;
   }
 
-  window.QUIZ = { next: next, check: check, LEVEL_NAMES: LEVEL_NAMES, hasJa: function (u) { return !!((u.gen || []).some(function (g) { return JA[g]; }) || (u.bank || []).some(function (b) { return b[3]; })); } };
+  window.QUIZ = { next: next, cleanQ: cleanQ, check: check, LEVEL_NAMES: LEVEL_NAMES, hasJa: function (u) { return !!((u.gen || []).some(function (g) { return JA[g]; }) || (u.bank || []).some(function (b) { return b[3]; })); } };
 })();

@@ -412,7 +412,7 @@
   function newPractice(unit) {
     var seen = {};
     var item = pickNew(unit, null, seen);
-    return { unit: unit, q: item.q, a: item.a, lv: item.lv, status: "", seen: seen, shownAt: Date.now() };
+    return { unit: unit, q: item.q, a: item.a, lv: item.lv, d: item.d, status: "", seen: seen, shownAt: Date.now() };
   }
   // 作答方式：type 輸入、choice 選擇題
   var answerMode = "choice";
@@ -426,42 +426,65 @@
     return arr;
   }
 
-  // 產生 4 個選項（1 正解 + 3 干擾），資料不足時回傳 null（改用輸入作答）
-  function makeOptions(a, unit) {
+  // 答案的類型：干擾項必須與正解同類型，避免「注音配數字」之類的錯配
+  function answerType(s) {
+    s = String(s).trim();
+    if (/^-?\d+(\.\d+)?$/.test(s)) return "num";
+    if (/^[\u3100-\u312F˙ˊˇˋ]+$/.test(s)) return "bopomofo";
+    if (/^[A-Za-z][A-Za-z' ,.\-]*$/.test(s)) return "latin";
+    if (/^[\u3040-\u30FF]+$/.test(s)) return "kana";
+    return "text";
+  }
+
+  // 注音的近似變形（當題庫中同類注音不足時使用）
+  function bopomofoVariants(main) {
+    var pool = "ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ", out = [];
+    var chars = main.split("");
+    for (var k = 0; k < 40 && out.length < 6; k++) {
+      var c = chars.slice(), idx = Math.floor(Math.random() * c.length);
+      if (/[ˊˇˋ˙]/.test(c[idx])) continue;
+      c[idx] = pool.charAt(Math.floor(Math.random() * pool.length));
+      var t = c.join("");
+      if (t !== main && out.indexOf(t) === -1) out.push(t);
+    }
+    return out;
+  }
+
+  // 產生 4 個選項：正解 + 3 個同類型的干擾項
+  // 優先順序：出題者提供的干擾項 → 同單元答案 → 同科答案 → 全部題庫答案
+  function makeOptions(a, unit, d) {
     var main = String(a).split("|")[0].trim();
     var alts = String(a).split("|").map(function (x) { return x.trim().toLowerCase(); });
+    var type = answerType(main);
     var out = [];
-    if (/^-?\d+(\.\d+)?$/.test(main)) {
+    var ok = function (t) {
+      return t && t !== main && alts.indexOf(String(t).toLowerCase()) === -1 &&
+        out.indexOf(t) === -1 && answerType(t) === type && String(t).length <= 40;
+    };
+    var answersOf = function (units) {
+      return units.reduce(function (acc, u2) {
+        return acc.concat((u2.bank || []).map(function (b) { return String(b[1]).split("|")[0].trim(); }));
+      }, []);
+    };
+    if (type === "num") {
       var n = Number(main), dec = (main.split(".")[1] || "").length;
       var step = Math.max(1, Math.round(Math.abs(n) * 0.2));
-      var cands = [n + step, n - step, n + 2 * step, n - 2 * step, n + 1, n - 1, n * 2, Math.round(n / 2) + 1];
-      cands.forEach(function (c) {
+      [n + step, n - step, n + 2 * step, n - 2 * step, n + 1, n - 1, n * 2, Math.round(n / 2) + 1].forEach(function (c) {
         var t = dec ? c.toFixed(dec) : String(Math.round(c));
-        if (out.length < 3 && t !== main && alts.indexOf(t.toLowerCase()) === -1 && out.indexOf(t) === -1) out.push(t);
+        if (out.length < 3 && ok(t)) out.push(t);
       });
     } else {
-      var pool = [];
-      var source = (unit.bank || []).concat(ALL_UNITS.filter(function (u) { return u.subjectId === unit.subjectId; })
-        .reduce(function (acc, u) { return acc.concat(u.bank || []); }, []));
-      source.forEach(function (b) {
-        var t = String(b[1]).split("|")[0].trim();
-        if (t && t !== main && alts.indexOf(t.toLowerCase()) === -1 && t.length <= 24 && pool.indexOf(t) === -1) pool.push(t);
+      (d || []).forEach(function (t) { t = String(t).trim(); if (out.length < 3 && ok(t)) out.push(t); });
+      shuffleArr((unit.bank || []).map(function (b) { return String(b[1]).split("|")[0].trim(); })).forEach(function (t) {
+        if (out.length < 3 && ok(t)) out.push(t);
       });
-      out = shuffleArr(pool).slice(0, 3);
+      var sameSubject = unit.subjectId ? ALL_UNITS.filter(function (u2) { return u2.subjectId === unit.subjectId; }) : [];
+      shuffleArr(answersOf(sameSubject)).forEach(function (t) { if (out.length < 3 && ok(t)) out.push(t); });
+      shuffleArr(answersOf(ALL_UNITS)).forEach(function (t) { if (out.length < 3 && ok(t)) out.push(t); });
+      if (type === "bopomofo") bopomofoVariants(main).forEach(function (t) { if (out.length < 3 && ok(t)) out.push(t); });
+      if (type === "text") ["以上皆是", "以上皆非", "都不是"].forEach(function (t) { if (out.length < 3 && ok(t)) out.push(t); });
     }
-    if (out.length < 3) {
-      var extra = [];
-      ALL_UNITS.forEach(function (u2) {
-        (u2.bank || []).forEach(function (b) {
-          var t = String(b[1]).split("|")[0].trim();
-          if (t && t !== main && alts.indexOf(t.toLowerCase()) === -1 && t.length <= 24 && out.indexOf(t) === -1 && extra.indexOf(t) === -1) extra.push(t);
-        });
-      });
-      out = out.concat(shuffleArr(extra).slice(0, 3 - out.length));
-    }
-    ["以上皆是", "以上皆非", "都不是"].forEach(function (t) {
-      if (out.length < 3 && t !== main && out.indexOf(t) === -1) out.push(t);
-    });
+    if (out.length < 3) return null;
     return shuffleArr(out.slice(0, 3).concat([main]));
   }
 
@@ -522,7 +545,7 @@
     html += '<div class="q-stage"><p class="pq">' + lvBadge(practice.lv) + esc(practice.q) + '</p></div>';
     if (st === "revealed") html += '<p class="answer fx-in">答案：' + esc(practice.a.split("|")[0]) + '</p>';
 
-    if (answerMode === "choice" && practice.opts === undefined) practice.opts = makeOptions(practice.a, practice.unit);
+    if (answerMode === "choice" && practice.opts === undefined) practice.opts = makeOptions(practice.a, practice.unit, practice.d);
     var useChoice = answerMode === "choice" && practice.opts;
 
     if (useChoice) {
@@ -557,7 +580,7 @@
     while (items.length < REVIEW_QUESTIONS && tries < 40) {
       tries++;
       var it = QUIZ.next(u, null, 0);
-      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, opts: makeOptions(it.a, u) }); }
+      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, opts: makeOptions(it.a, u, it.d) }); }
     }
     return items;
   }
@@ -937,7 +960,7 @@
       var it = QUIZ.next(u, null, 0);
       if (seen[it.q]) continue;
       seen[it.q] = true;
-      questions.push({ unit: u, q: it.q, a: it.a, lv: it.lv, opts: makeOptions(it.a, u) });
+      questions.push({ unit: u, q: it.q, a: it.a, lv: it.lv, opts: makeOptions(it.a, u, it.d) });
     }
     mockState = { phase: "test", questions: questions, results: [], score: 0, scope: "弱點練習", picks: {} };
     render();
@@ -984,7 +1007,7 @@
       if (item.missing) continue;
       if (seen[item.q]) continue;
       seen[item.q] = true; lastQ = item.q;
-      questions.push({ unit: u, q: item.q, a: item.a, lv: item.lv, opts: makeOptions(item.a, u) });
+      questions.push({ unit: u, q: item.q, a: item.a, lv: item.lv, opts: makeOptions(item.a, u, item.d) });
     }
     var subj = mockCfg.subject === "all" ? "全部科目" : findSubject(mockCfg.subject).name;
     var grade = mockCfg.grade === "all" ? "全部年級" : mockCfg.grade + " 年級";
@@ -1537,7 +1560,7 @@
     if (action === "next") {
       if (!practice) return;
       var item = pickNew(practice.unit, practice.q, practice.seen || {});
-      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = []; practice.shownAt = Date.now();
+      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.d = item.d; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = []; practice.shownAt = Date.now();
       renderPractice();
       return;
     }
