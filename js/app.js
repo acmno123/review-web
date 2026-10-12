@@ -37,6 +37,7 @@
   var ICON = { math: "📐", science: "🔬", social: "🌏", chinese: "📖", english: "🔤", ja: "🇯🇵" };
   var COLOR = { math: "#6366f1", science: "#10b981", social: "#f59e0b", chinese: "#ef4444", english: "#0ea5e9", ja: "#e11d48" };
   var LV_NAME = { 1: "基礎", 2: "進階", 3: "困難", 4: "魔王" };
+  var SEMESTER_NAMES = window.SEMESTER_NAMES || { 1: "上學期", 2: "下學期", 0: "待分類" };
 
   /* 記憶體中的狀態 */
   var practice = null, practiceLevel = 0, reviewState = null;
@@ -114,6 +115,7 @@
             var lesson = LESSONS[u.id] || {};
             ALL_UNITS.push(Object.assign({}, u, {
               subjectId: s.id, subjectName: s.name, grade: Number(g), chapterTitle: ch.title,
+              semester: (window.SEMESTERS || {})[u.id] || 0,
               hook: u.hook || lesson.hook || "", fun: u.fun || lesson.fun || "", custom: false
             }));
           });
@@ -124,7 +126,7 @@
       var s = findSubject(c.subjectId);
       if (!s) return;
       if (s.grades.indexOf(c.grade) === -1) s.grades.push(c.grade);
-      ALL_UNITS.push(Object.assign({}, c, { subjectName: s.name, gen: c.gen || [], custom: true }));
+      ALL_UNITS.push(Object.assign({}, c, { subjectName: s.name, gen: c.gen || [], custom: true, semester: c.semester || 0 }));
     });
   }
   buildUnits();
@@ -612,10 +614,17 @@
     var html = '<nav class="breadcrumb"><a href="#/">首頁</a> / ' + esc(s.name) + '（' + grade + ' 年級）</nav>' +
       '<h1>' + (ICON[s.id] || "") + ' ' + esc(s.name) + '　' + grade + ' 年級</h1>';
     if (!chapters.length) html += '<p class="muted">本科此年級內容製作中。</p>';
-    chapters.forEach(function (ch) {
-      html += '<section class="chapter"><h2>' + esc(ch.title) + '</h2><ul class="unit-list">' +
-        ch.units.map(function (u) { return '<li><a href="#/unit/' + esc(u.id) + '">' + esc(u.title) + '</a></li>'; }).join("") +
-        '</ul></section>';
+    [1, 2, 0].forEach(function (sem) {
+      var groups = chapters.map(function (ch) {
+        return { title: ch.title, units: ch.units.filter(function (u) { return (u.semester || 0) === sem; }) };
+      }).filter(function (ch) { return ch.units.length; });
+      if (!groups.length) return;
+      html += '<div class="sem-head"><span class="sem-badge sem-' + sem + '">' + SEMESTER_NAMES[sem] + '</span></div>';
+      groups.forEach(function (ch) {
+        html += '<section class="chapter"><h2>' + esc(ch.title) + '</h2><ul class="unit-list">' +
+          ch.units.map(function (u) { return '<li><a href="#/unit/' + esc(u.id) + '">' + esc(u.title) + '</a></li>'; }).join("") +
+          '</ul></section>';
+      });
     });
     app.innerHTML = html;
   }
@@ -710,10 +719,14 @@
         var units = [];
         chaptersOf(s, g).forEach(function (ch) { units = units.concat(ch.units); });
         if (!units.length) return;
-        html += '<h3>' + g + ' 年級</h3><ul class="review-list">' + units.map(function (u) {
-          var st = reviewStatus(data.units[u.id]);
-          return '<li><a href="#/review/' + esc(u.id) + '">' + esc(u.title) + '</a><span class="rstatus ' + st.cls + '">' + st.label + '</span></li>';
-        }).join("") + '</ul>';
+        [1, 2, 0].forEach(function (sem) {
+          var part = units.filter(function (u) { return (u.semester || 0) === sem; });
+          if (!part.length) return;
+          html += '<h3>' + g + ' 年級・' + SEMESTER_NAMES[sem] + '</h3><ul class="review-list">' + part.map(function (u) {
+            var st = reviewStatus(data.units[u.id]);
+            return '<li><a href="#/review/' + esc(u.id) + '">' + esc(u.title) + '</a><span class="rstatus ' + st.cls + '">' + st.label + '</span></li>';
+          }).join("") + '</ul>';
+        });
       });
       html += '</section>';
     });
@@ -1010,6 +1023,7 @@
       '<p class="muted">單元編號：' + esc(id) + '。題庫每行「題目 ## 答案」，想指定難度可再加「 ## 數字」（1 基礎、2 進階、3 困難、4 魔王）。</p>' +
       '<form data-form="uedit" data-id="' + esc(id) + '">' +
       '<label>單元名稱<input type="text" name="title" value="' + esc(o.title || '') + '" required></label>' +
+      '<label>學期<select name="semester"><option value="1"' + (o.semester === 1 ? ' selected' : '') + '>上學期</option><option value="2"' + (o.semester === 2 ? ' selected' : '') + '>下學期</option><option value="0"' + (!o.semester ? ' selected' : '') + '>待分類</option></select></label>' +
       '<label>開場提示<input type="text" name="hook" value="' + esc(o.hook || '') + '"></label>' +
       '<label>重點（每行一點）<textarea name="points">' + esc((o.points || []).join('\n')) + '</textarea></label>' +
       '<label>你知道嗎？<input type="text" name="fun" value="' + esc(o.fun || '') + '"></label>' +
@@ -1065,6 +1079,7 @@
       '<form data-form="unit">' +
       '<div class="field-row"><label>科目<select name="subjectId">' + subjOpts + '</select></label>' +
       '<label>年級<select name="grade"><option value="7">七年級</option><option value="8">八年級</option><option value="9">九年級</option></select></label>' +
+      '<label>學期<select name="semester"><option value="1">上學期</option><option value="2">下學期</option><option value="0">待分類</option></select></label>' +
       '<label>章節名稱<input type="text" name="chapterTitle" required></label></div>' +
       '<label>單元名稱<input type="text" name="title" required></label>' +
       '<label>開場提示（生活情境）<input type="text" name="hook"></label>' +
@@ -1465,7 +1480,7 @@
         var cid = "c" + Date.now().toString(36);
         CUSTOM.push({
           id: cid, title: form.elements.title.value.trim(), subjectId: form.subjectId.value,
-          grade: Number(form.grade.value), chapterTitle: form.chapterTitle.value.trim(),
+          grade: Number(form.grade.value), semester: Number(form.elements.semester.value) || 0, chapterTitle: form.chapterTitle.value.trim(),
           hook: form.hook.value.trim(), fun: form.fun.value.trim(), points: points, bank: bank, gen: []
         });
         save(K_CUSTOM, CUSTOM);
@@ -1485,6 +1500,7 @@
         var ovr = load(K_OVR, {});
         ovr[eid] = {
           title: form.elements.title.value.trim(), hook: form.elements.hook.value.trim(),
+          semester: Number(form.elements.semester.value) || 0,
           fun: form.elements.fun.value.trim(), points: epoints, bank: ebank
         };
         save(K_OVR, ovr);

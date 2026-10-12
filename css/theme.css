@@ -405,3 +405,15 @@ label { color: var(--ink-soft); font-weight: 600; }
   body::before, .hero::after { animation: none; }
   .btn, .tile, .opt, .person-card, .q-card { transition: none; }
 }
+
+/* ---------- 上下學期標題 ---------- */
+.sem-head { margin: 34px 0 6px; display: flex; align-items: center; gap: 12px; }
+.sem-head::after { content: ""; flex: 1; height: 1px; background: var(--line-strong); }
+.sem-badge {
+  display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; font-weight: 900;
+  font-size: .95rem; letter-spacing: .04em; color: #fff; background: var(--grad);
+  box-shadow: 0 10px 26px -10px rgba(176,124,255,.8);
+}
+.sem-badge.sem-1 { background: linear-gradient(120deg, #6d7cff, #46e0ff); }
+.sem-badge.sem-2 { background: linear-gradient(120deg, #b07cff, #ff6ac1); }
+.sem-badge.sem-0 { background: rgba(148,163,255,.25); color: var(--ink); box-shadow: none; }
