@@ -436,3 +436,125 @@ h2 { letter-spacing: .01em; }
   .panel, .chapter { padding: 18px; }
   .search { flex-direction: column; }
 }
+
+/* =====================================================================
+ * 第二次美化：統一色彩、層次與互動細節（放在檔案最後，覆蓋前面的設定）
+ * ===================================================================== */
+:root {
+  --brand1: #6366f1;
+  --brand2: #8b5cf6;
+  --accent: #ec4899;
+  --radius: 20px;
+  --shadow: 0 1px 2px rgba(15,23,42,.04), 0 10px 30px -12px rgba(15,23,42,.12);
+  --shadow-lg: 0 24px 50px -18px rgba(79,70,229,.28);
+}
+[data-theme="dark"] {
+  --card: #151d2e;
+  --bg: #0b1222;
+  --soft: #1b2539;
+  --line: #27324a;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.5);
+}
+
+body {
+  font-feature-settings: "palt";
+  letter-spacing: .01em;
+  background:
+    radial-gradient(1000px 500px at 0% -10%, rgba(99,102,241,.13), transparent 60%),
+    radial-gradient(800px 420px at 100% 0%, rgba(236,72,153,.09), transparent 60%),
+    var(--bg);
+}
+
+/* 頂欄：玻璃感與更清楚的按鈕 */
+.topbar {
+  background: linear-gradient(110deg, #4338ca 0%, #6d28d9 55%, #be185d 100%);
+  box-shadow: 0 10px 30px -12px rgba(67,56,202,.45);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.topbar a, .linklike {
+  transition: background .2s, transform .15s;
+}
+.topbar a:hover, .linklike:hover { transform: translateY(-1px); }
+.btn-small { box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+
+/* 首頁：大標題與磁貼 */
+.hero {
+  background:
+    radial-gradient(600px 300px at 90% 10%, rgba(255,255,255,.22), transparent 60%),
+    linear-gradient(135deg, #4338ca 0%, #7c3aed 45%, #db2777 100%);
+  box-shadow: var(--shadow-lg);
+  padding: 44px 40px;
+}
+.hero h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: .02em; }
+.hero p { font-size: 1.02rem; line-height: 1.85; }
+.stat { transition: transform .2s, box-shadow .2s; }
+.stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.stat .num { font-variant-numeric: tabular-nums; }
+
+.grade-block h2 { font-size: 1.35rem; font-weight: 800; }
+.tile {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box,
+              linear-gradient(135deg, var(--c), transparent 70%) border-box;
+}
+.tile:hover { box-shadow: 0 22px 44px -16px color-mix(in srgb, var(--c) 45%, transparent); }
+.tile-name { font-size: 1.2rem; }
+.tile-bar { height: 8px; }
+
+/* 卡片與面板 */
+.panel, .card-block, .chapter, .q-card, .auth-box {
+  border: 1px solid rgba(148,163,184,.16);
+  box-shadow: var(--shadow);
+}
+.card-block h2, .panel h2 { font-weight: 800; }
+.unit-list a {
+  border: 1px solid transparent;
+  transition: background .18s, color .18s, transform .18s, border-color .18s;
+}
+.unit-list a:hover { border-color: rgba(255,255,255,.2); }
+
+/* 按鈕與輸入框 */
+.btn {
+  font-weight: 600;
+  transition: transform .12s, box-shadow .2s, background .2s, color .2s;
+}
+.btn-primary {
+  background: linear-gradient(120deg, #6366f1, #8b5cf6 55%, #ec4899);
+  background-size: 160% 100%;
+  box-shadow: 0 10px 22px -10px rgba(99,102,241,.7);
+  transition: background-position .4s, transform .12s, box-shadow .2s;
+}
+.btn-primary:hover { background-position: 100% 0; box-shadow: 0 14px 28px -10px rgba(139,92,246,.75); }
+.seg-btn.on { background: linear-gradient(120deg, #6366f1, #ec4899); }
+input[type=text], input[type=password], input[type=number], select, textarea {
+  border-radius: 12px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+/* 問題卡片 */
+.q-no { background: linear-gradient(135deg, #6366f1, #ec4899); box-shadow: 0 8px 18px -8px rgba(99,102,241,.6); }
+.pq, .q-text { line-height: 1.7; }
+
+/* 進度環與標籤 */
+.ring { box-shadow: 0 16px 34px -18px rgba(99,102,241,.6); }
+.badge, .rstatus, .lv { letter-spacing: .02em; }
+
+/* 管理後台側邊欄 */
+.admin-side { background: linear-gradient(180deg, var(--card), var(--soft)); }
+.side-link { transition: transform .15s, background .2s; }
+.side-link:hover { transform: translateX(3px); }
+.side-link.active { background: linear-gradient(120deg, #6366f1, #ec4899); box-shadow: 0 8px 18px -10px rgba(99,102,241,.7); }
+
+/* 提示與底部固定列 */
+.flash { border-left-width: 5px; backdrop-filter: blur(6px); }
+.sticky-foot {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  box-shadow: 0 -10px 30px -14px rgba(15,23,42,.18);
+}
+
+/* 手機版間距 */
+@media (max-width: 640px) {
+  .hero { padding: 30px 22px; border-radius: 22px; }
+  .hero h1 { font-size: 2rem; }
+  .tile-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+}
