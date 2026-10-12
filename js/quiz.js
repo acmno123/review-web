@@ -38,7 +38,7 @@
       return { q: "計算 " + signed(a) + " + " + signed(b) + " - " + signed(c) + " = ?", a: String(a + b - c) };
     }
     var a2 = ri(-R, R), b2 = ri(-R, R);
-    return { q: "計算 " + signed(a2) + " + " + signed(b2) + " = ?", a: String(a2 + b2) };
+    return { exp: "這題是 " + a2 + " + " + b2 + "。" + (a2 * b2 >= 0 ? "同號相加：符號不變，絕對值相加，得 " : "異號相加：取絕對值較大者的符號，絕對值相減，得 ") + (a2 + b2) + "。", q: "計算 " + signed(a2) + " + " + signed(b2) + " = ?", a: String(a2 + b2) };
   };
   G.signedSub = function (lv) {
     var R = lv === 1 ? 20 : lv === 2 ? 50 : 99;
@@ -52,7 +52,7 @@
     }
     var R = lv === 1 ? 9 : 15;
     var x = ri(-R, R), y = ri(-R, R);
-    return { q: "計算 " + signed(x) + " × " + signed(y) + " = ?", a: String(x * y) };
+    return { exp: x + " × " + y + "：" + (x * y >= 0 ? "同號（或含 0）得正" : "異號得負") + "，絕對值相乘得 " + (Math.abs(x) * Math.abs(y)) + "，所以結果是 " + (x * y) + "。", q: "計算 " + signed(x) + " × " + signed(y) + " = ?", a: String(x * y) };
   };
   G.signedDiv = function (lv) {
     var d = lv === 3 ? pick([-12, -9, -8, -7, 7, 8, 9, 12]) : pick([-6, -4, -3, -2, 2, 3, 4, 6]);
@@ -68,7 +68,7 @@
     while (m > 1) {
       if (m % p === 0) { out.push(p); m /= p; } else { p++; }
     }
-    return { q: "把 " + n + " 做質因數分解（格式如 2×2×3）", a: out.join("×") };
+    return { exp: "從最小的質數開始逐一試除：" + out.join(" × ") + " = " + n + "。", q: "把 " + n + " 做質因數分解（格式如 2×2×3）", a: out.join("×") };
   };
   G.gcdlcm = function (lv) {
     var a, b;
@@ -88,7 +88,7 @@
       return { q: "解方程式：" + a + "x " + sgn(b) + " = " + c + "x " + sgn(d) + "，求 x", a: String(x) };
     }
     var x2 = ri(-9, 9), a2 = ri(2, 9) * (Math.random() < 0.3 ? -1 : 1), b2 = ri(-20, 20);
-    return { q: "解方程式：" + a2 + "x " + sgn(b2) + " = " + (a2 * x2 + b2) + "，求 x", a: String(x2) };
+    return { exp: "兩邊" + (b2 >= 0 ? "減去 " + b2 : "加上 " + (-b2)) + "，得 " + a2 + "x = " + (a2 * x2) + "；兩邊同除以 " + a2 + "，得 x = " + x2 + "。", q: "解方程式：" + a2 + "x " + sgn(b2) + " = " + (a2 * x2 + b2) + "，求 x", a: String(x2) };
   };
   G.linearParen = function (lv) {
     var R = lv === 1 ? 9 : 15;
@@ -98,7 +98,7 @@
   };
   G.ratio = function (lv) {
     var a = ri(2, 9), b = ri(2, 9), k = ri(2, lv === 1 ? 9 : lv === 2 ? 15 : 25);
-    return { q: "比例式 " + a + " : " + b + " = " + (a * k) + " : ?", a: String(b * k) };
+    return { exp: "交叉相乘（內項乘積 = 外項乘積）：" + b + " × " + (a * k) + " = " + a + " × x，所以 x = " + (b * k) + "。", q: "比例式 " + a + " : " + b + " = " + (a * k) + " : ?", a: String(b * k) };
   };
   G.percent = function (lv) {
     if (lv === 3) {
@@ -106,7 +106,7 @@
       return { q: "某商品原價 " + P + " 元，打 " + p + " 折，售價是多少元？", a: String(P * p / 10) };
     }
     var base = ri(1, lv === 1 ? 20 : 60) * 20, pp = ri(1, 19) * 5;
-    return { q: "求 " + base + " 的 " + pp + "% 是多少？", a: String(base * pp / 100) };
+    return { exp: "求 " + base + " 的 " + pp + "%：" + base + " × " + pp + " ÷ 100 = " + (base * pp / 100) + "。", q: "求 " + base + " 的 " + pp + "% 是多少？", a: String(base * pp / 100) };
   };
   G.triangleAngle = function (lv) {
     if (lv === 3) {
@@ -120,7 +120,7 @@
     var TRIPLES = [[3, 4, 5], [5, 12, 13], [8, 15, 17], [7, 24, 25]];
     var t = pick(TRIPLES), k = ri(1, lv === 1 ? 3 : lv === 2 ? 6 : 10);
     var a = t[0] * k, b = t[1] * k, c = t[2] * k;
-    if (Math.random() < 0.5) return { q: "直角三角形兩股長 " + a + " 與 " + b + "，斜邊長是多少？", a: String(c) };
+    if (Math.random() < 0.5) return { exp: "勾股定理：兩股平方和等於斜邊平方。" + a + "² + " + b + "² = " + (a * a + b * b) + "，所以斜邊 c = " + c + "。", q: "直角三角形兩股長 " + a + " 與 " + b + "，斜邊長是多少？", a: String(c) };
     return { q: "直角三角形斜邊長 " + c + "，一股長 " + a + "，另一股長是多少？", a: String(b) };
   };
   G.linearFunc = function (lv) {
@@ -151,7 +151,7 @@
   /* ---------- 自然 ---------- */
   G.density = function (lv) {
     var d = ri(1, lv === 1 ? 10 : 20), v = ri(2, lv === 1 ? 20 : 50), m = d * v;
-    if (Math.random() < 0.5) return { q: "某物體質量 " + m + " g，體積 " + v + " cm³，密度是多少 g/cm³？", a: String(d) };
+    if (Math.random() < 0.5) return { exp: "密度 = 質量 ÷ 體積 = " + m + " ÷ " + v + " = " + d + " g/cm³。", q: "某物體質量 " + m + " g，體積 " + v + " cm³，密度是多少 g/cm³？", a: String(d) };
     return { q: "某物質密度 " + d + " g/cm³，體積 " + v + " cm³，質量是多少 g？", a: String(m) };
   };
   G.concentration = function (lv) {
@@ -201,7 +201,7 @@
     var s = pick([["I", "am"], ["You", "are"], ["We", "are"], ["They", "are"],
                   ["He", "is"], ["She", "is"], ["It", "is"]]);
     var others = ["am", "is", "are"].filter(function (x) { return x !== s[1]; });
-    return { q: "請選出正確的 be 動詞：" + s[0] + " ____ a student.", a: s[1], d: others.concat(["be"]) };
+    return { exp: "be 動詞依主詞決定：I 用 am；you、we、they 用 are；he、she、it 用 is。這題的主詞是 " + s[0] + "，所以用 " + s[1] + "。", q: "請選出正確的 be 動詞：" + s[0] + " ____ a student.", a: s[1], d: others.concat(["be"]) };
   };
   G.englishThird = function () {
     // [原形, 第三人稱單數, 現在分詞, 過去式, 句尾]
@@ -213,7 +213,7 @@
       ["do", "does", "doing", "did", "homework after dinner"]];
     var v = pick(verbs);
     var s = pick(["He", "She"]);
-    return { q: "請選出 " + v[0] + " 的正確形式：" + s + " ____ " + v[4] + ".", a: v[1], d: [v[0], v[2], v[3]] };
+    return { exp: "第三人稱單數（he / she / it）的現在式動詞要加 s 或 es（子音 + y 結尾改 ies）：" + v[0] + " → " + v[1] + "。", q: "請選出 " + v[0] + " 的正確形式：" + s + " ____ " + v[4] + ".", a: v[1], d: [v[0], v[2], v[3]] };
   };
   G.englishIng = function () {
     var v = pick([["play", "playing", "basketball"], ["run", "running", "in the park"],
@@ -241,7 +241,7 @@
     if (lv === 3) {
       return { q: "請選出否定句的正確形式：" + subj[0] + " ____ not " + v[1] + " " + v[2] + " before.", a: subj[1] + " not " + v[1], d: [other + " not " + v[1], "had not " + v[1], subj[1] + " not " + v[0]] };
     }
-    return { q: "請選出 " + v[0] + " 的正確形式：" + subj[0] + " ____ " + v[2] + " before.", a: subj[1] + " " + v[1], d: [other + " " + v[1], "had " + v[1], subj[1] + " " + v[0]] };
+    return { exp: subj[0] + " 用 " + subj[1] + "；現在完成式 = have / has + 過去分詞，" + v[0] + " 的過去分詞是 " + v[1] + "。", q: "請選出 " + v[0] + " 的正確形式：" + subj[0] + " ____ " + v[2] + " before.", a: subj[1] + " " + v[1], d: [other + " " + v[1], "had " + v[1], subj[1] + " " + v[0]] };
   };
 
   /* ---------- 日文版題型（與中文版數學、理化題對應） ---------- */

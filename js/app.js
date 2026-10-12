@@ -412,7 +412,7 @@
   function newPractice(unit) {
     var seen = {};
     var item = pickNew(unit, null, seen);
-    return { unit: unit, q: item.q, a: item.a, lv: item.lv, d: item.d, status: "", seen: seen, shownAt: Date.now() };
+    return { unit: unit, q: item.q, a: item.a, lv: item.lv, d: item.d, exp: item.exp, status: "", seen: seen, shownAt: Date.now() };
   }
   // 作答方式：type 輸入、choice 選擇題
   var answerMode = "choice";
@@ -486,6 +486,23 @@
     }
     if (out.length < 3) return null;
     return shuffleArr(out.slice(0, 3).concat([main]));
+  }
+
+  // 詳解：說明為什麼是這個答案，並建議回到哪個單元複習
+  function explainHtml(unit, answer, exp) {
+    var u = unit || {};
+    var ans = String(answer).split("|")[0];
+    var pts = (u.points || []).slice(0, 4);
+    var why = exp || ("這一題的正確答案是「" + ans + "」。請看下面的重點，理解它為什麼是正確答案。");
+    var review = (u.id && !String(u.id).startsWith("lang-") && u.title)
+      ? '<div class="ex-review">📌 建議複習：<a href="#/unit/' + esc(u.id) + '">' + esc(u.title) + '</a>' +
+        (u.subjectName ? '（' + esc(u.subjectName) + (u.grade ? ' ' + u.grade + ' 年級' : '') + '）' : '') + '</div>'
+      : '';
+    return '<div class="explain fx-in">' +
+      '<div class="ex-head"><span class="ex-tag">詳解</span>正確答案：<strong>' + esc(ans) + '</strong></div>' +
+      '<p class="ex-why">' + esc(why) + '</p>' +
+      (pts.length ? '<div class="ex-sub">本單元重點</div><ul class="ex-points">' + pts.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join("") + '</ul>' : '') +
+      review + '</div>';
   }
 
   // 統一的答題判斷：答對與答錯都在這裡處理
@@ -566,6 +583,7 @@
 
     if (done) html += '<p class="ok fx-in">✅ 答對了！</p>';
     if (st === "wrong") html += '<p class="ng fx-in">❌ 不對，再試一次，或按「看答案」。</p>';
+    if (st === "wrong" || st === "revealed") html += explainHtml(practice.unit, practice.a, practice.exp);
     html += '<div class="actions"><button class="btn" data-action="next">換一題</button>' +
       '<button class="btn btn-ghost" data-action="reveal">看答案</button></div>';
 
@@ -580,7 +598,7 @@
     while (items.length < REVIEW_QUESTIONS && tries < 40) {
       tries++;
       var it = QUIZ.next(u, null, 0);
-      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, opts: makeOptions(it.a, u, it.d) }); }
+      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, exp: it.exp, opts: makeOptions(it.a, u, it.d) }); }
     }
     return items;
   }
@@ -603,6 +621,7 @@
           '<button class="btn btn-primary" data-action="rcheck" data-idx="' + i + '">檢查</button></div>';
       }
       if (it.ok) html += '<p class="ok fx-in">✅ 答對了</p>';
+      else if (it.picked) html += explainHtml(st.unit, it.a, it.exp);
       html += '</div>';
     });
     if (st.done) {
@@ -1007,7 +1026,7 @@
       if (item.missing) continue;
       if (seen[item.q]) continue;
       seen[item.q] = true; lastQ = item.q;
-      questions.push({ unit: u, q: item.q, a: item.a, lv: item.lv, opts: makeOptions(item.a, u, item.d) });
+      questions.push({ unit: u, q: item.q, a: item.a, lv: item.lv, exp: item.exp, opts: makeOptions(item.a, u, item.d) });
     }
     var subj = mockCfg.subject === "all" ? "全部科目" : findSubject(mockCfg.subject).name;
     var grade = mockCfg.grade === "all" ? "全部年級" : mockCfg.grade + " 年級";
@@ -1047,7 +1066,7 @@
         '<p>' + lvBadge(it.lv) + '<span class="q-text">' + esc(it.q) + '</span></p>' +
         '<p>你的答案：<strong>' + esc(r.input || "（未作答）") + '</strong>　' +
         (r.ok ? '<span class="ok">✅ 正確</span>' : '<span class="ng">❌ 正確答案：' + esc(it.a.split("|")[0]) + '</span>') + '</p>' +
-        '<p class="muted small-note">' + esc(it.unit.title) + '</p></div></article>';
+        '<p class="muted small-note">' + esc(it.unit.title) + '</p>' + (r.ok ? '' : explainHtml(it.unit, it.a, it.exp)) + '</div></article>';
     });
     app.innerHTML = html + '</div>';
   }
@@ -1561,7 +1580,7 @@
     if (action === "next") {
       if (!practice) return;
       var item = pickNew(practice.unit, practice.q, practice.seen || {});
-      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.d = item.d; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = []; practice.shownAt = Date.now();
+      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.d = item.d; practice.exp = item.exp; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = []; practice.shownAt = Date.now();
       renderPractice();
       return;
     }
@@ -1630,6 +1649,8 @@
         render();
       } else {
         el.classList.add("picked", "bad");
+        var exWrap = el.closest(".rq");
+        if (exWrap && !exWrap.querySelector(".explain")) exWrap.insertAdjacentHTML("beforeend", explainHtml(findUnit(pw.unitId), pw.a, null));
         toast("還不對，再試一次", true);
       }
       return;
