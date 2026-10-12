@@ -558,3 +558,110 @@ input[type=text], input[type=password], input[type=number], select, textarea {
   .hero h1 { font-size: 2rem; }
   .tile-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
 }
+
+/* =====================================================================
+ * 響應式版面：手機與電腦都方便操作
+ * ===================================================================== */
+.container { max-width: 1120px; }
+
+/* 觸控目標至少 44px，手指比較好按 */
+.btn, .chip, .seg-btn, .side-link, .unit-list a, .tab {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.unit-list a { display: flex; }
+input[type=text], input[type=password], input[type=number], select, textarea { font-size: 16px; }
+
+/* 電腦版：單元頁兩欄更寬敞 */
+@media (min-width: 1100px) {
+  .unit-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .card-grid, .tile-grid { gap: 18px; }
+}
+
+/* 平板與手機 */
+@media (max-width: 900px) {
+  .topbar { padding: 10px 14px; }
+  .unit-hero { padding: 20px; }
+  .unit-hero h1 { font-size: 1.6rem; }
+  .admin-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  /* 頂欄可以左右滑動，不會擠成好幾排 */
+  .topbar { flex-wrap: nowrap; }
+  .topbar nav {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar a, .linklike { white-space: nowrap; flex: 0 0 auto; }
+  .brand { width: 100%; }
+
+  .container { margin: 16px auto; padding: 0 12px; }
+  .panel, .card-block, .chapter, .q-card { padding: 16px; border-radius: 18px; }
+
+  /* 模擬考與題目卡片：數字與內容上下排列，輸入框撐滿 */
+  .q-card { flex-direction: column; gap: 10px; }
+  .q-body input, .mock-q input { max-width: none; width: 100%; }
+  .pa-row { flex-direction: column; }
+  .pa-row input, .pa-row .btn { width: 100%; min-width: 0; }
+  .pa-row .btn { min-height: 48px; }
+
+  /* 底部固定列：全寬按鈕 */
+  .sticky-foot { gap: 8px; padding: 10px; }
+  .sticky-foot .btn { flex: 1; }
+
+  /* 管理後台：側邊欄改為橫向捲動的選單 */
+  .admin-side {
+    position: static;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 10px;
+    border-radius: 16px;
+    scrollbar-width: none;
+  }
+  .admin-side::-webkit-scrollbar { display: none; }
+  .admin-brand { display: none; }
+  .side-link { flex: 0 0 auto; margin: 0; padding: 8px 14px; }
+
+  /* 表格可以左右滑動 */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table th, .table td { white-space: nowrap; padding: 8px 6px; font-size: .9rem; }
+
+  /* 學習紀錄與設定區塊：一欄排列 */
+  .stat-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat-row .num { font-size: 1.2rem; }
+  .setup-grid { gap: 12px; }
+  .start-card { flex-direction: column; align-items: stretch; text-align: center; }
+  .start-card .btn { width: 100%; }
+  .btn-lg { padding: 14px 20px; }
+
+  /* 首頁搜尋與按鈕 */
+  .search { flex-direction: column; }
+  .search .btn { width: 100%; }
+  .hero-actions .btn { flex: 1 1 calc(50% - 10px); text-align: center; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  /* 提示訊息置中，不擋住頂欄 */
+  .toasts { left: 12px; right: 12px; top: auto; bottom: 88px; align-items: stretch; }
+  .flash { max-width: none; }
+}
+
+/* 極小螢幕（約 360px） */
+@media (max-width: 380px) {
+  .hero h1 { font-size: 1.6rem; }
+  .tile-grid { grid-template-columns: 1fr; }
+  .hero-actions .btn { flex-basis: 100%; }
+}
+
+/* 電腦上滑鼠懸停時才顯示的效果，觸控裝置不套用，避免黏住 */
+@media (hover: none) {
+  .tile:hover, .card:hover, .stat:hover, .unit-list a:hover { transform: none; }
+}
