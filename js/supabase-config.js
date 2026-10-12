@@ -10,6 +10,6 @@
  * 留空時，網站會繼續使用本機瀏覽器儲存（localStorage）。
  */
 window.SUPABASE_CONFIG = {
-  url: "",       // 例如 "https://xxxxxxxxxxxx.supabase.co"
-  anonKey: ""    // 例如 "eyJhbGciOi..."（anon public key）
+  url: "https://mycukmsycuksegquinar.supabase.co",       // 例如 "https://xxxxxxxxxxxx.supabase.co"
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15Y3VrbXN5Y3Vrc2VncXVpbmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4MDQ4MjAsImV4cCI6MjEwNzM4MDgyMH0.9yy9tU2NkOyAVNdULGyJff0v6EwF-37FqfgSPnRbtOI"    // 例如 "eyJhbGciOi..."（anon public key）
 };
