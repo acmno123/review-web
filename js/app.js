@@ -315,17 +315,17 @@
 
   /* ---------- 主題 ---------- */
   function applyTheme() {
-    document.documentElement.setAttribute("data-theme", load(K_THEME, "light"));
+    document.documentElement.setAttribute("data-theme", load(K_THEME, "dark"));
   }
   function toggleTheme() {
-    save(K_THEME, load(K_THEME, "light") === "dark" ? "light" : "dark");
+    save(K_THEME, load(K_THEME, "dark") === "dark" ? "light" : "dark");
     applyTheme();
     render();
   }
 
   /* ---------- 導覽列 ---------- */
   function renderNav() {
-    var user = currentUser(), theme = load(K_THEME, "light");
+    var user = currentUser(), theme = load(K_THEME, "dark");
     var html = '<a href="#/review">複習</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a><a href="#/people">社群</a><a href="#/chat">聊天室</a>';
     if (user) {
       html += '<a href="#/dashboard">我的學習</a><a href="#/u/' + encodeURIComponent(user) + '">個人檔案</a>';
