@@ -1072,6 +1072,19 @@
     validateRegister(document.querySelector('form[data-form="register"]'));
   }
 
+  // 註冊時延遲 350 毫秒後查詢帳號是否可用，避免每打一個字就送出請求
+  function scheduleUsernameCheck(form, name) {
+    form.dataset.available = "";
+    clearTimeout(form._usernameTimer);
+    form._usernameTimer = setTimeout(async function () {
+      var r = await window.CloudDB.usernameAvailable(name);
+      if (form.elements.username.value.trim() !== name) return; // 使用者已經改了帳號
+      form.dataset.checked = name;
+      form.dataset.available = r.error ? "err" : (r.data ? "yes" : "no");
+      validateRegister(form);
+    }, 350);
+  }
+
   // 密碼強度：0 太短、1 弱、2 普通、3 好、4 很強
   function pwStrength(pw) {
     if (pw.length < 6) return 0;
@@ -1095,8 +1108,16 @@
       var m = el.querySelector(".fmsg"); if (m) m.textContent = msg || "";
     };
     var u = v.username.value.trim();
+    var cloudOn = !!(window.CloudDB && window.CloudDB.ready);
+    var avail = form.dataset.available || "";
     if (!u) setFld("username", "", "");
-    else setFld("username", userOk ? "is-ok" : "is-err", userOk ? "✓ 格式正確" : "請使用 3–20 個英數字或底線");
+    else if (!userOk) setFld("username", "is-err", "請使用 3–20 個英數字或底線");
+    else if (!cloudOn) setFld("username", "is-ok", "✓ 格式正確");
+    else if (avail === "yes") setFld("username", "is-ok", "✓ 可以使用");
+    else if (avail === "no") setFld("username", "is-err", "此帳號已被使用，請換一個");
+    else if (avail === "err") setFld("username", "is-err", "無法確認是否可用，請稍後再試");
+    else setFld("username", "", "檢查中…");
+    if (userOk && cloudOn && form.dataset.checked !== u) scheduleUsernameCheck(form, u);
     var nl = v.nickname.value.length;
     var cnt = fld("nickname").querySelector(".count"); if (cnt) cnt.textContent = nl + "/12";
     var score = pw ? pwStrength(pw) : 0;
@@ -1113,7 +1134,8 @@
       var li = form.querySelector('[data-rule="' + k + '"]');
       if (li) li.classList.toggle("done", rules[k]);
     });
-    form.querySelector('button[type="submit"]').disabled = !(userOk && pw.length >= 6 && match && termsOk);
+    var availOk = !cloudOn || avail === "yes";
+    form.querySelector('button[type="submit"]').disabled = !(userOk && pw.length >= 6 && match && termsOk && availOk);
   }
 
   function viewAuth(mode) {

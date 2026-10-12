@@ -329,6 +329,13 @@
       if (!id) return { data: null, error: "請先登入" };
       return wrap(client.from("reports").insert({ reporter: id, message_id: Number(msgId), reason: String(reason || "") }));
     }
+    ,
+
+    // 註冊時即時檢查帳號是否可用（需執行 supabase/05-username-check.sql）
+    usernameAvailable: function (name) {
+      need();
+      return wrap(client.rpc("username_available", { p_name: String(name) }));
+    }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列

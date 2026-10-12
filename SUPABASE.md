@@ -77,3 +77,6 @@ supabase functions deploy admin-users
 
 ## 第五步：聊天室檢舉
 到 SQL Editor 執行 `supabase/04-reports.sql`。之後聊天室中別人的訊息會出現「檢舉」按鈕，檢舉紀錄可以在 Supabase 後台的 **Table Editor → reports** 查看（只有管理員能讀取）。
+
+## 第六步：註冊即時檢查帳號
+到 SQL Editor 執行 `supabase/05-username-check.sql`。之後註冊時輸入帳號會自動檢查是否已被使用。
