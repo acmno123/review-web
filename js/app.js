@@ -362,23 +362,121 @@
     var item = pickNew(unit, null, seen);
     return { unit: unit, q: item.q, a: item.a, lv: item.lv, status: "", seen: seen };
   }
+  // 作答方式：type 輸入、choice 選擇題
+  var answerMode = "type";
+
+  function shuffleArr(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  // 產生 4 個選項（1 正解 + 3 干擾），資料不足時回傳 null（改用輸入作答）
+  function makeOptions(a, unit) {
+    var main = String(a).split("|")[0].trim();
+    var alts = String(a).split("|").map(function (x) { return x.trim().toLowerCase(); });
+    var out = [];
+    if (/^-?\d+(\.\d+)?$/.test(main)) {
+      var n = Number(main), dec = (main.split(".")[1] || "").length;
+      var step = Math.max(1, Math.round(Math.abs(n) * 0.2));
+      var cands = [n + step, n - step, n + 2 * step, n - 2 * step, n + 1, n - 1, n * 2, Math.round(n / 2) + 1];
+      cands.forEach(function (c) {
+        var t = dec ? c.toFixed(dec) : String(Math.round(c));
+        if (out.length < 3 && t !== main && alts.indexOf(t.toLowerCase()) === -1 && out.indexOf(t) === -1) out.push(t);
+      });
+    } else {
+      var pool = [];
+      var source = (unit.bank || []).concat(ALL_UNITS.filter(function (u) { return u.subjectId === unit.subjectId; })
+        .reduce(function (acc, u) { return acc.concat(u.bank || []); }, []));
+      source.forEach(function (b) {
+        var t = String(b[1]).split("|")[0].trim();
+        if (t && t !== main && alts.indexOf(t.toLowerCase()) === -1 && t.length <= 24 && pool.indexOf(t) === -1) pool.push(t);
+      });
+      out = shuffleArr(pool).slice(0, 3);
+    }
+    if (out.length < 3) return null;
+    return shuffleArr(out.concat([main]));
+  }
+
+  // 統一的答題判斷：答對與答錯都在這裡處理
+  function gradeAnswer(val) {
+    if (!practice || practice.status === "correct") return;
+    var user = currentUser();
+    if (QUIZ.check(val, practice.a)) {
+      practice.status = "correct";
+      if (window.FX) FX.burst(document.querySelector("#practice-box .pq"));
+      if (user) {
+        var data = getData(user), rec = unitRecord(data, practice.unit.id);
+        rec.correct = (rec.correct || 0) + 1;
+        data.units[practice.unit.id] = rec;
+        data.wrong = data.wrong.filter(function (w) { return w.q !== practice.q; });
+        addToday(data);
+        touchStreak(data);
+        setData(user, data);
+        checkAchievements(user);
+        render();
+        return;
+      }
+      renderPractice();
+      return;
+    }
+    practice.status = "wrong";
+    if (answerMode === "choice" && practice.opts) {
+      var idx = practice.opts.indexOf(val);
+      practice.badIdx = practice.badIdx || [];
+      if (idx !== -1 && practice.badIdx.indexOf(idx) === -1) practice.badIdx.push(idx);
+    }
+    if (user) {
+      var d2 = getData(user);
+      addWrong(d2, practice.unit, practice.q, practice.a);
+      setData(user, d2);
+    }
+    renderPractice();
+    if (window.FX) FX.shake(document.querySelector("#practice-box .pq"));
+  }
+
   function renderPractice() {
     var box = document.getElementById("practice-box");
     if (!box || !practice) return;
-    var st = practice.status;
-    var html = '<p class="pq">' + lvBadge(practice.lv) + esc(practice.q) + '</p>';
-    if (st === "revealed") html += '<p class="answer">答案：' + esc(practice.a.split("|")[0]) + '</p>';
-    html += '<div class="pa-row"><input id="practice-input" type="text" autocomplete="off" placeholder="輸入答案"' +
-      (st === "correct" ? ' disabled' : '') + '>' +
-      '<button class="btn btn-primary" data-action="check"' + (st === "correct" ? ' disabled' : '') + '>檢查</button></div>';
-    if (st === "correct") html += '<p class="ok">✅ 答對了！</p>';
-    if (st === "wrong") html += '<p class="ng">❌ 不對，再試一次，或按「看答案」。</p>';
+    var st = practice.status, done = st === "correct";
+
+    var html = '<div class="chips mode-chips"><span class="muted" style="align-self:center">作答方式：</span>' +
+      [["type", "✍️ 輸入作答"], ["choice", "🎯 選擇題"]].map(function (c) {
+        return '<button class="chip' + (answerMode === c[0] ? ' active' : '') + '" data-action="amode" data-mode="' + c[0] + '">' + c[1] + '</button>';
+      }).join("") + '</div>';
+
+    html += '<div class="q-stage"><p class="pq">' + lvBadge(practice.lv) + esc(practice.q) + '</p></div>';
+    if (st === "revealed") html += '<p class="answer fx-in">答案：' + esc(practice.a.split("|")[0]) + '</p>';
+
+    if (answerMode === "choice" && practice.opts === undefined) practice.opts = makeOptions(practice.a, practice.unit);
+    var useChoice = answerMode === "choice" && practice.opts;
+
+    if (useChoice) {
+      practice.badIdx = practice.badIdx || [];
+      html += '<div class="opt-grid">' + practice.opts.map(function (o, i) {
+        var cls = "opt", locked = done || practice.badIdx.indexOf(i) !== -1;
+        if (practice.badIdx.indexOf(i) !== -1) cls += " bad";
+        if (done && QUIZ.check(o, practice.a)) cls += " good";
+        return '<button class="' + cls + ' fx-in" style="animation-delay:' + (i * 60) + 'ms" data-action="pick" data-idx="' + i + '"' +
+          (locked ? ' disabled' : '') + '><span class="opt-k">' + "ABCD".charAt(i) + '</span><span>' + esc(o) + '</span></button>';
+      }).join("") + '</div>';
+    } else {
+      if (answerMode === "choice") html += '<p class="muted small-note">此題沒有足夠的選項，改用輸入作答。</p>';
+      html += '<div class="pa-row"><input id="practice-input" type="text" autocomplete="off" placeholder="輸入答案"' +
+        (done ? ' disabled' : '') + '><button class="btn btn-primary" data-action="check"' + (done ? ' disabled' : '') + '>檢查</button></div>';
+    }
+
+    if (done) html += '<p class="ok fx-in">✅ 答對了！</p>';
+    if (st === "wrong") html += '<p class="ng fx-in">❌ 不對，再試一次，或按「看答案」。</p>';
     html += '<div class="actions"><button class="btn" data-action="next">換一題</button>' +
       '<button class="btn btn-ghost" data-action="reveal">看答案</button></div>';
+
     box.innerHTML = html;
     var inp = document.getElementById("practice-input");
     if (inp && !inp.disabled) inp.focus();
   }
+
   function makeReviewItems(u) {
     var items = [], seen = {}, tries = 0;
     while (items.length < REVIEW_QUESTIONS && tries < 40) {
@@ -1104,37 +1202,26 @@
       render();
       return;
     }
+    if (action === "amode") {
+      answerMode = el.getAttribute("data-mode") === "choice" ? "choice" : "type";
+      renderPractice();
+      return;
+    }
     if (action === "check") {
-      if (!practice || practice.status === "correct") return;
       var inp = document.getElementById("practice-input"), val = inp ? inp.value : "";
       if (!val.trim()) { toast("請先輸入答案", true); return; }
-      var user = currentUser();
-      if (QUIZ.check(val, practice.a)) {
-        practice.status = "correct";
-        if (user) {
-          var data = getData(user), rec = unitRecord(data, practice.unit.id);
-          rec.correct = (rec.correct || 0) + 1;
-          data.units[practice.unit.id] = rec;
-          data.wrong = data.wrong.filter(function (w) { return w.q !== practice.q; });
-          addToday(data);
-          touchStreak(data);
-          setData(user, data);
-          checkAchievements(user);
-          render();
-          return;
-        }
-        renderPractice();
-      } else {
-        practice.status = "wrong";
-        if (user) { var d2 = getData(user); addWrong(d2, practice.unit, practice.q, practice.a); setData(user, d2); }
-        renderPractice();
-      }
+      gradeAnswer(val);
+      return;
+    }
+    if (action === "pick") {
+      if (!practice || !practice.opts) return;
+      gradeAnswer(practice.opts[Number(el.getAttribute("data-idx"))]);
       return;
     }
     if (action === "next") {
       if (!practice) return;
       var item = pickNew(practice.unit, practice.q, practice.seen || {});
-      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = "";
+      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = ""; delete practice.opts; practice.badIdx = [];
       renderPractice();
       return;
     }
