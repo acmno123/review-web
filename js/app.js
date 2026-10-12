@@ -365,7 +365,8 @@
     return { unit: unit, q: item.q, a: item.a, lv: item.lv, status: "", seen: seen };
   }
   // 作答方式：type 輸入、choice 選擇題
-  var answerMode = "type";
+  var answerMode = "choice";
+  var wrongOpts = []; // 錯題本目前顯示的選項
 
   function shuffleArr(arr) {
     for (var i = arr.length - 1; i > 0; i--) {
@@ -397,8 +398,20 @@
       });
       out = shuffleArr(pool).slice(0, 3);
     }
-    if (out.length < 3) return null;
-    return shuffleArr(out.concat([main]));
+    if (out.length < 3) {
+      var extra = [];
+      ALL_UNITS.forEach(function (u2) {
+        (u2.bank || []).forEach(function (b) {
+          var t = String(b[1]).split("|")[0].trim();
+          if (t && t !== main && alts.indexOf(t.toLowerCase()) === -1 && t.length <= 24 && out.indexOf(t) === -1 && extra.indexOf(t) === -1) extra.push(t);
+        });
+      });
+      out = out.concat(shuffleArr(extra).slice(0, 3 - out.length));
+    }
+    ["以上皆是", "以上皆非", "都不是"].forEach(function (t) {
+      if (out.length < 3 && t !== main && out.indexOf(t) === -1) out.push(t);
+    });
+    return shuffleArr(out.slice(0, 3).concat([main]));
   }
 
   // 統一的答題判斷：答對與答錯都在這裡處理
@@ -484,7 +497,7 @@
     while (items.length < REVIEW_QUESTIONS && tries < 40) {
       tries++;
       var it = QUIZ.next(u, null, 0);
-      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false }); }
+      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, opts: makeOptions(it.a, u) }); }
     }
     return items;
   }
@@ -495,6 +508,9 @@
     st.items.forEach(function (it, i) {
       html += '<div class="rq"><p>' + lvBadge(it.lv) + '<strong>第 ' + (i + 1) + ' 題：</strong>' + esc(it.q) + '</p>';
       if (it.ok) html += '<p class="ok">✅ 答對了</p>';
+      else if (it.opts) html += '<div class="opt-grid">' + it.opts.map(function (o, j) {
+        return '<button class="opt fx-in" data-action="rpick" data-idx="' + i + '" data-o="' + j + '"><span class="opt-k">' + "ABCD".charAt(j) + '</span><span>' + esc(o) + '</span></button>';
+      }).join("") + '</div>';
       else html += '<div class="pa-row"><input id="rin-' + i + '" type="text" autocomplete="off" placeholder="輸入答案">' +
         '<button class="btn btn-primary" data-action="rcheck" data-idx="' + i + '">檢查</button></div>';
       html += '</div>';
@@ -803,11 +819,11 @@
       if (item.missing) continue;
       if (seen[item.q]) continue;
       seen[item.q] = true; lastQ = item.q;
-      questions.push({ unit: u, q: item.q, a: item.a, lv: item.lv });
+      questions.push({ unit: u, q: item.q, a: item.a, lv: item.lv, opts: makeOptions(item.a, u) });
     }
     var subj = mockCfg.subject === "all" ? "全部科目" : findSubject(mockCfg.subject).name;
     var grade = mockCfg.grade === "all" ? "全部年級" : mockCfg.grade + " 年級";
-    mockState = { phase: "test", questions: questions, results: [], score: 0, scope: grade + "・" + subj };
+    mockState = { phase: "test", questions: questions, results: [], score: 0, scope: grade + "・" + subj, picks: {} };
     render();
   }
   function viewMockTest() {
@@ -818,7 +834,10 @@
     mockState.questions.forEach(function (it, i) {
       html += '<article class="q-card"><div class="q-no">' + (i + 1) + '</div><div class="q-body">' +
         '<p>' + lvBadge(it.lv) + '<span class="q-text">' + esc(it.q) + '</span></p>' +
-        '<input id="mi-' + i + '" type="text" autocomplete="off" placeholder="輸入答案"></div></article>';
+        (it.opts ? '<div class="opt-grid">' + it.opts.map(function (o, j) {
+          return '<button class="opt" data-action="mpick" data-q="' + i + '" data-o="' + j + '"><span class="opt-k">' + "ABCD".charAt(j) + '</span><span>' + esc(o) + '</span></button>';
+        }).join("") + '</div>' : '<input id="mi-' + i + '" type="text" autocomplete="off" placeholder="輸入答案">') +
+        '</div></article>';
     });
     html += '</div><div class="sticky-foot"><button class="btn btn-primary btn-lg" data-action="msubmit">交卷</button>' +
       '<button class="btn btn-ghost" data-action="mcancel">放棄本次</button></div>';
@@ -848,7 +867,9 @@
   function submitMock() {
     var total = mockState.questions.length, score = 0, user = currentUser();
     mockState.results = mockState.questions.map(function (it, i) {
-      var inp = document.getElementById("mi-" + i), val = inp ? inp.value : "";
+      var pick = mockState.picks ? mockState.picks[i] : undefined;
+      var inp = document.getElementById("mi-" + i);
+      var val = (it.opts && pick !== undefined) ? it.opts[pick] : (inp ? inp.value : "");
       var ok = val.trim() !== "" && QUIZ.check(val, it.a);
       if (ok) score++;
       return { input: val, ok: ok };
@@ -891,11 +912,15 @@
       html += '<section class="panel"><p>目前沒有錯題，太棒了！🎉</p></section>';
     } else {
       html += '<section class="panel"><p>共 <strong>' + data.wrong.length + '</strong> 題</p>';
+      wrongOpts = data.wrong.map(function (w) {
+        return makeOptions(w.a, findUnit(w.unitId) || { bank: [], subjectId: null }) || [];
+      });
       data.wrong.forEach(function (w, i) {
         html += '<div class="rq"><p><strong>' + esc(w.title) + '</strong></p><p class="pq">' + esc(w.q) + '</p>' +
-          '<div class="pa-row"><input id="win-' + i + '" type="text" autocomplete="off" placeholder="輸入答案">' +
-          '<button class="btn btn-primary" data-action="wcheck" data-idx="' + i + '">檢查</button>' +
-          '<button class="btn btn-ghost" data-action="wreveal" data-idx="' + i + '">看答案</button></div>' +
+          '<div class="opt-grid">' + wrongOpts[i].map(function (o, j) {
+            return '<button class="opt" data-action="wpick" data-idx="' + i + '" data-o="' + j + '"><span class="opt-k">' + "ABCD".charAt(j) + '</span><span>' + esc(o) + '</span></button>';
+          }).join("") + '</div>' +
+          '<div class="actions"><button class="btn btn-ghost" data-action="wreveal" data-idx="' + i + '">看答案</button></div>' +
           '<p class="answer" id="wans-' + i + '" style="display:none">答案：' + esc(w.a.split("|")[0]) + '</p></div>';
       });
       html += '</section>';
@@ -1257,11 +1282,17 @@
     }
 
     /* 複習確認 */
-    if (action === "rcheck") {
+    if (action === "rcheck" || action === "rpick") {
       if (!reviewState || reviewState.done) return;
       var idx = Number(el.getAttribute("data-idx")), it = reviewState.items[idx];
-      var rin = document.getElementById("rin-" + idx), v = rin ? rin.value : "";
-      if (!v.trim()) { toast("請先輸入答案", true); return; }
+      var v;
+      if (action === "rpick") {
+        v = it.opts[Number(el.getAttribute("data-o"))];
+      } else {
+        var rin = document.getElementById("rin-" + idx);
+        v = rin ? rin.value : "";
+        if (!v.trim()) { toast("請先輸入答案", true); return; }
+      }
       if (QUIZ.check(v, it.a)) {
         it.ok = true;
         var ru = currentUser();
@@ -1276,22 +1307,22 @@
         var u2 = currentUser();
         if (u2) { var d3 = getData(u2); addWrong(d3, reviewState.unit, it.q, it.a); setData(u2, d3); }
         toast("答案不對，已收進錯題本", true);
+        renderReview();
       }
       return;
     }
     if (action === "rrestart") { reviewState = null; render(); return; }
 
     /* 錯題本 */
-    if (action === "wcheck") {
-      var wu = currentUser();
-      if (!wu) return;
-      var wi = Number(el.getAttribute("data-idx")), wd = getData(wu), w = wd.wrong[wi];
-      if (!w) return;
-      var wv = document.getElementById("win-" + wi), wval = wv ? wv.value : "";
-      if (!wval.trim()) { toast("請先輸入答案", true); return; }
-      if (QUIZ.check(wval, w.a)) {
-        wd.wrong.splice(wi, 1);
-        setData(wu, wd);
+    if (action === "wpick") {
+      var pu = currentUser();
+      if (!pu) return;
+      var pi = Number(el.getAttribute("data-idx")), pd = getData(pu), pw = pd.wrong[pi];
+      if (!pw || !wrongOpts[pi]) return;
+      var pval = wrongOpts[pi][Number(el.getAttribute("data-o"))];
+      if (QUIZ.check(pval, pw.a)) {
+        pd.wrong.splice(pi, 1);
+        setData(pu, pd);
         toast("答對了，已移出錯題本 ✅");
         render();
       } else {
@@ -1313,6 +1344,14 @@
       return;
     }
     if (action === "mstart") { startMock(); return; }
+    if (action === "mpick") {
+      if (!mockState || !mockState.picks) return;
+      var mq = Number(el.getAttribute("data-q"));
+      mockState.picks[mq] = Number(el.getAttribute("data-o"));
+      document.querySelectorAll('[data-action="mpick"][data-q="' + mq + '"]').forEach(function (b) { b.classList.remove("picked"); });
+      el.classList.add("picked");
+      return;
+    }
     if (action === "msubmit") { submitMock(); return; }
     if (action === "mcancel") { mockState = null; render(); return; }
     if (action === "mreset") { mockState = { phase: "setup" }; render(); return; }

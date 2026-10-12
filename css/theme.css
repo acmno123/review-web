@@ -454,3 +454,6 @@ label { color: var(--ink-soft); font-weight: 700; }
   .panel, .card-block, .chapter, .stat, .person-card, .unit-hero { animation: none !important; }
   .btn, .tile, .opt, .person-card, .q-card, .unit-list a { transition: none !important; }
 }
+
+/* 模擬考：已選取的選項 */
+.opt.picked { border-color: var(--brand); background: rgba(139,155,255,.2); box-shadow: var(--glow); }
