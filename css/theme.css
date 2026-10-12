@@ -457,3 +457,64 @@ label { color: var(--ink-soft); font-weight: 700; }
 
 /* 模擬考：已選取的選項 */
 .opt.picked { border-color: var(--brand); background: rgba(139,155,255,.2); box-shadow: var(--glow); }
+
+/* =====================================================================
+ * 選擇題：強化的選項外觀與「你的選擇」標示
+ * ===================================================================== */
+.opt {
+  min-height: 68px; padding: 16px 18px; font-size: 1.05rem; line-height: 1.5;
+  transition: transform .25s cubic-bezier(.2,.8,.2,1), border-color .25s, box-shadow .3s, background .3s, opacity .3s;
+}
+.opt > span:last-child { flex: 1; min-width: 0; }
+.opt-k {
+  width: 42px; height: 42px; flex: 0 0 42px; font-size: 1.02rem;
+  transition: transform .3s cubic-bezier(.2,.8,.2,1), background .3s;
+}
+.opt:hover:not(:disabled) .opt-k { transform: scale(1.08) rotate(-4deg); }
+
+/* 已選取：漸層描邊、浮起、加上標籤 */
+.opt.picked {
+  border: 2px solid transparent;
+  background: linear-gradient(var(--glass-strong), var(--glass-strong)) padding-box, var(--grad) border-box;
+  box-shadow: 0 0 0 4px rgba(192,132,252,.16), 0 24px 48px -18px rgba(192,132,252,.85);
+  transform: translateY(-3px) scale(1.012);
+  padding-top: 26px;
+}
+.opt.picked::after {
+  content: "你的選擇"; position: absolute; top: 9px; right: 12px;
+  padding: 4px 12px; border-radius: 999px; background: var(--grad); color: #fff;
+  font-size: .72rem; font-weight: 900; letter-spacing: .05em; box-shadow: 0 8px 18px -6px rgba(192,132,252,.95);
+  animation: fx-in .35s cubic-bezier(.2,.8,.2,1) both;
+}
+.opt.picked.good {
+  background: linear-gradient(var(--glass-strong), var(--glass-strong)) padding-box, linear-gradient(120deg, var(--ok), var(--cyan)) border-box;
+  box-shadow: 0 0 0 4px rgba(52,211,153,.18), 0 24px 48px -18px rgba(52,211,153,.8);
+}
+.opt.picked.good::after { content: "✔ 你選對了"; background: linear-gradient(120deg, var(--ok), var(--cyan)); box-shadow: 0 8px 18px -6px rgba(52,211,153,.9); }
+.opt.picked.bad {
+  background: linear-gradient(var(--glass-strong), var(--glass-strong)) padding-box, linear-gradient(120deg, var(--bad), var(--accent)) border-box;
+  box-shadow: 0 0 0 4px rgba(251,113,133,.18), 0 24px 48px -18px rgba(251,113,133,.8);
+}
+.opt.picked.bad::after { content: "✘ 你選錯了"; background: linear-gradient(120deg, var(--bad), var(--accent)); box-shadow: 0 8px 18px -6px rgba(251,113,133,.9); }
+
+/* 正確答案（作答後顯示） */
+.opt.good:not(.picked) { border-color: rgba(52,211,153,.7); background: rgba(52,211,153,.1); }
+.opt.good:not(.picked) .opt-k { background: var(--ok); }
+
+/* 未被選到的選項：淡化，讓已選的更突出 */
+.opt:disabled:not(.picked):not(.good) { opacity: .4; transform: none; }
+
+/* 作答後不可再點的選項不要浮起 */
+.opt:disabled { cursor: default; }
+.opt:disabled:hover { transform: none; }
+
+/* 手機：標籤縮小，避免擠到文字 */
+@media (max-width: 640px) {
+  .opt.picked { padding-top: 30px; }
+  .opt.picked::after { font-size: .66rem; top: 8px; right: 8px; }
+}
+
+/* 減少動態效果時不做浮起與旋轉 */
+@media (prefers-reduced-motion: reduce) {
+  .opt.picked, .opt-k { transform: none !important; }
+}

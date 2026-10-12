@@ -417,6 +417,7 @@
   // 統一的答題判斷：答對與答錯都在這裡處理
   function gradeAnswer(val) {
     if (!practice || practice.status === "correct") return;
+    practice.picked = val;
     var user = currentUser();
     if (QUIZ.check(val, practice.a)) {
       practice.status = "correct";
@@ -472,6 +473,7 @@
       html += '<div class="opt-grid">' + practice.opts.map(function (o, i) {
         var cls = "opt", locked = done || practice.badIdx.indexOf(i) !== -1;
         if (practice.badIdx.indexOf(i) !== -1) cls += " bad";
+        if (practice.picked === o) cls += " picked";
         if (done && QUIZ.check(o, practice.a)) cls += " good";
         return '<button class="' + cls + ' fx-in" style="animation-delay:' + (i * 60) + 'ms" data-action="pick" data-idx="' + i + '"' +
           (locked ? ' disabled' : '') + '><span class="opt-k">' + "ABCD".charAt(i) + '</span><span>' + esc(o) + '</span></button>';
@@ -507,12 +509,19 @@
     var st = reviewState, html = "";
     st.items.forEach(function (it, i) {
       html += '<div class="rq"><p>' + lvBadge(it.lv) + '<strong>第 ' + (i + 1) + ' 題：</strong>' + esc(it.q) + '</p>';
-      if (it.ok) html += '<p class="ok">✅ 答對了</p>';
-      else if (it.opts) html += '<div class="opt-grid">' + it.opts.map(function (o, j) {
-        return '<button class="opt fx-in" data-action="rpick" data-idx="' + i + '" data-o="' + j + '"><span class="opt-k">' + "ABCD".charAt(j) + '</span><span>' + esc(o) + '</span></button>';
-      }).join("") + '</div>';
-      else html += '<div class="pa-row"><input id="rin-' + i + '" type="text" autocomplete="off" placeholder="輸入答案">' +
-        '<button class="btn btn-primary" data-action="rcheck" data-idx="' + i + '">檢查</button></div>';
+      if (it.opts) {
+        html += '<div class="opt-grid">' + it.opts.map(function (o, j) {
+          var cls = "opt fx-in";
+          if (it.picked === o) cls += it.ok ? " picked good" : " picked bad";
+          else if (it.ok && QUIZ.check(o, it.a)) cls += " good";
+          return '<button class="' + cls + '" data-action="rpick" data-idx="' + i + '" data-o="' + j + '"' +
+            (it.ok ? ' disabled' : '') + '><span class="opt-k">' + "ABCD".charAt(j) + '</span><span>' + esc(o) + '</span></button>';
+        }).join("") + '</div>';
+      } else if (!it.ok) {
+        html += '<div class="pa-row"><input id="rin-' + i + '" type="text" autocomplete="off" placeholder="輸入答案">' +
+          '<button class="btn btn-primary" data-action="rcheck" data-idx="' + i + '">檢查</button></div>';
+      }
+      if (it.ok) html += '<p class="ok fx-in">✅ 答對了</p>';
       html += '</div>';
     });
     if (st.done) {
@@ -524,12 +533,10 @@
       html += '<p class="muted">已答對 ' + ok + ' / ' + st.items.length + ' 題</p>';
     }
     box.innerHTML = html;
-    var first = box.querySelector("input");
-    if (first) first.focus();
   }
 
   /* ---------- 頁面：首頁與搜尋 ---------- */
-  function notFound() { app.innerHTML = '<div class="panel"><h1>找不到這個頁面</h1><p><a href="#/">回到首頁</a></p></div>'; }
+    function notFound() { app.innerHTML = '<div class="panel"><h1>找不到這個頁面</h1><p><a href="#/">回到首頁</a></p></div>'; }
 
   function langChips() {
     return '<div class="chips"><span class="muted" style="align-self:center">題目語言：</span>' +
@@ -1261,7 +1268,7 @@
     if (action === "next") {
       if (!practice) return;
       var item = pickNew(practice.unit, practice.q, practice.seen || {});
-      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = ""; delete practice.opts; practice.badIdx = [];
+      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = [];
       renderPractice();
       return;
     }
@@ -1288,6 +1295,7 @@
       var v;
       if (action === "rpick") {
         v = it.opts[Number(el.getAttribute("data-o"))];
+        it.picked = v;
       } else {
         var rin = document.getElementById("rin-" + idx);
         v = rin ? rin.value : "";
@@ -1326,6 +1334,7 @@
         toast("答對了，已移出錯題本 ✅");
         render();
       } else {
+        el.classList.add("picked", "bad");
         toast("還不對，再試一次", true);
       }
       return;
