@@ -244,6 +244,64 @@
       if (!rows.length) return { data: null, error: null };
       return wrap(client.from("videos").insert(rows));
     }
+    ,
+
+    /* ---------- 社群：公開個人資料與學習狀況 ---------- */
+    getPublicProfile: function (username) {
+      need();
+      return wrap(client.from("public_profiles").select("id,username,nickname,role,created_at").ilike("username", username).maybeSingle());
+    },
+
+    getPublicProfilesByIds: function (ids) {
+      need();
+      if (!ids.length) return Promise.resolve({ data: [], error: null });
+      return wrap(client.from("public_profiles").select("id,username,nickname,role,created_at").in("id", ids));
+    },
+
+    getStatsFor: function (userId) {
+      need();
+      return wrap(client.from("public_stats").select("is_public,stats,updated_at").eq("user_id", userId).maybeSingle());
+    },
+
+    listPublicStats: function () {
+      need();
+      return wrap(client.from("public_stats").select("user_id,stats,updated_at").eq("is_public", true).order("updated_at", { ascending: false }).limit(100));
+    },
+
+    // 寫入自己的學習摘要（只更新 stats 與時間，不改變公開設定）
+    savePublicStats: async function (stats) {
+      need();
+      var id = await currentUserId();
+      if (!id) return { data: null, error: "請先登入" };
+      return wrap(client.from("public_stats").upsert({ user_id: id, stats: stats, updated_at: new Date().toISOString() }, { onConflict: "user_id" }));
+    },
+
+    setPublicVisibility: async function (flag) {
+      need();
+      var id = await currentUserId();
+      if (!id) return { data: null, error: "請先登入" };
+      return wrap(client.from("public_stats").upsert({ user_id: id, is_public: !!flag }, { onConflict: "user_id" }));
+    },
+
+    /* ---------- 聊天室 ---------- */
+    fetchChat: function (limit) {
+      need();
+      return wrap(client.from("chat_messages").select("id,user_id,body,created_at").order("created_at", { ascending: false }).limit(limit || 60));
+    },
+
+    sendChat: async function (body) {
+      need();
+      var id = await currentUserId();
+      if (!id) return { data: null, error: "請先登入" };
+      return wrap(client.from("chat_messages").insert({ user_id: id, body: body }));
+    },
+
+    deleteChat: function (msgId) {
+      need();
+      return wrap(client.from("chat_messages").delete().eq("id", msgId));
+    },
+
+    currentUserId: function () { need(); return currentUserId(); }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列

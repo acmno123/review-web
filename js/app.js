@@ -326,9 +326,9 @@
   /* ---------- 導覽列 ---------- */
   function renderNav() {
     var user = currentUser(), theme = load(K_THEME, "light");
-    var html = '<a href="#/review">複習</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a>';
+    var html = '<a href="#/review">複習</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a><a href="#/people">社群</a><a href="#/chat">聊天室</a>';
     if (user) {
-      html += '<a href="#/dashboard">我的學習</a>';
+      html += '<a href="#/dashboard">我的學習</a><a href="#/u/' + encodeURIComponent(user) + '">個人檔案</a>';
       if (isAdmin()) html += '<a href="#/admin">管理後台</a>';
       html += '<span class="user">👋 ' + esc(displayName(user)) + '</span><button class="linklike" data-action="logout">登出</button>';
     } else {
@@ -1028,6 +1028,9 @@
     if (path[0] === "review") return path[1] ? viewReview(path[1]) : viewReviewList();
     if (path[0] === "mock") return viewMock();
     if (path[0] === "wrong") return viewWrong();
+    if (path[0] === "people") return window.Social ? window.Social.community() : notFound();
+    if (path[0] === "u") return window.Social ? window.Social.profile(decodeURIComponent(path[1] || "")) : notFound();
+    if (path[0] === "chat") return window.Social ? window.Social.chat() : notFound();
     if (path[0] === "lang") return viewLang(path[1] === "ja" ? "ja" : "en");
     if (path[0] === "search") return viewSearch(decodeURIComponent(path.slice(1).join("/")));
     if (path[0] === "login") return viewAuth("login");
@@ -1320,6 +1323,7 @@
     if (!form) return;
     e.preventDefault();
     var mode = form.getAttribute("data-form");
+    if (mode.indexOf("social-") === 0) return; // 社群表單由 social.js 處理
     var msg = document.getElementById("auth-msg");
     try {
       if (mode === "search") {
@@ -1448,6 +1452,22 @@
       else toast(err.message || "發生錯誤", true);
     }
   });
+
+  // 公開學習摘要：寫入雲端 public_stats，供社群頁顯示
+  window.computePublicStats = function (data) {
+    var st = computeStats(data);
+    return {
+      completed: st.completed, total: ALL_UNITS.length, correct: st.correct, reviews: st.reviews,
+      streak: currentStreak(data), mocks: data.mocks.length, bestMock: data.bestMock,
+      achievements: data.earned.length,
+      subjects: SUBJECTS.map(function (s) {
+        return { id: s.id, name: s.name, done: st.bySubject[s.id], total: st.totalBySubject[s.id] };
+      })
+    };
+  };
+  window.AppKit = {
+    esc: esc, toast: toast, render: render, ICON: ICON, COLOR: COLOR, fmtDate: fmtDate
+  };
 
   window.addEventListener("hashchange", render);
   render();

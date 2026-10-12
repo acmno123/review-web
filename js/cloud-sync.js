@@ -57,6 +57,9 @@
     var data = get(K_DATA + cloudName, null);
     if (!data) return;
     window.CloudDB.saveUserState(data).then(function (r) { warn("儲存學習紀錄", r); });
+    if (window.computePublicStats) {
+      window.CloudDB.savePublicStats(window.computePublicStats(data)).then(function (r) { warn("儲存公開摘要", r); });
+    }
   }
 
   // 管理員內容：整表取代（非管理員的寫入會被資料庫權限拒絕，屬正常情況）
