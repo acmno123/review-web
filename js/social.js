@@ -7,6 +7,17 @@
   "use strict";
 
   var CHAT_POLL_MS = 5000;
+  var SEND_GAP_MS = 1500;     // 兩則訊息之間的最短間隔
+  var lastSentAt = 0;
+  // 不當字詞：命中時以「＊」遮蔽。可依需要自行增刪。
+  var BLOCKED = ["幹", "靠北", "白痴", "智障", "去死", "fuck", "shit"];
+  function maskText(text) {
+    var out = text;
+    BLOCKED.forEach(function (w) {
+      out = out.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), function (m) { return "＊".repeat(m.length); });
+    });
+    return out;
+  }
   var chatTimer = null;
 
   function kit() { return window.AppKit; }
@@ -169,6 +180,7 @@
         '<div class="bubble-text">' + esc(m.body) + '</div>' +
         '<div class="bubble-meta">' + time +
         (mine || kit().isAdmin() ? ' <button class="linklike-sm" data-action="social-chat-del" data-id="' + m.id + '">' + (mine ? "收回" : "刪除（管理員）") + '</button>' : '') +
+        (!mine ? ' <button class="linklike-sm" data-action="social-report" data-id="' + m.id + '">檢舉</button>' : '') +
         '</div></div></div>';
     }).join("");
     if (atBottom) list.scrollTop = list.scrollHeight;
@@ -179,7 +191,10 @@
     var form = e.target.closest && e.target.closest('[data-form="social-chat"]');
     if (!form) return;
     e.preventDefault();
-    var body = form.body.value.trim();
+    var body = maskText(form.body.value.trim());
+    var nowMs = Date.now();
+    if (nowMs - lastSentAt < SEND_GAP_MS) { kit().toast("發言太快了，請稍等一下", true); return; }
+    lastSentAt = nowMs;
     if (!body) return;
     var r = await db().sendChat(body);
     if (r.error) { kit().toast(r.error, true); return; }
@@ -189,6 +204,13 @@
   });
 
   document.addEventListener("click", async function (e) {
+    var rep = e.target.closest && e.target.closest('[data-action="social-report"]');
+    if (rep) {
+      if (!confirm("確定檢舉這則訊息？管理員會收到通知。")) return;
+      var rr = await db().reportMessage(rep.getAttribute("data-id"), "聊天室檢舉");
+      kit().toast(rr.error ? rr.error : "已送出檢舉，謝謝你幫忙維護聊天室", !!rr.error);
+      return;
+    }
     var el = e.target.closest && e.target.closest('[data-action="social-chat-del"]');
     if (!el) return;
     var r = await db().deleteChat(el.getAttribute("data-id"));

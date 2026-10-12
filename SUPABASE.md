@@ -74,3 +74,6 @@ supabase functions deploy admin-users
 ```
 
 部署後，管理後台的帳號列表就能重設密碼與刪除帳號。函式會再次確認呼叫者是 `role = 'admin'` 且未停用，一般使用者即使知道這個網址也無法使用。
+
+## 第五步：聊天室檢舉
+到 SQL Editor 執行 `supabase/04-reports.sql`。之後聊天室中別人的訊息會出現「檢舉」按鈕，檢舉紀錄可以在 Supabase 後台的 **Table Editor → reports** 查看（只有管理員能讀取）。

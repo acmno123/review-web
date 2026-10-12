@@ -235,6 +235,45 @@
     var row = data.stats[key] || { right: 0, wrong: 0 };
     if (ok) row.right += 1; else row.wrong += 1;
     data.stats[key] = row;
+    // 每日紀錄（最多保留 60 天），用於學習曲線
+    var day = isoDay();
+    data.history = data.history || [];
+    var last = data.history[data.history.length - 1];
+    if (!last || last.day !== day) {
+      last = { day: day, right: 0, wrong: 0 };
+      data.history.push(last);
+      if (data.history.length > 60) data.history.splice(0, data.history.length - 60);
+    }
+    if (ok) last.right += 1; else last.wrong += 1;
+  }
+  function isoDay() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // 學習曲線：最近 14 天的每日正確率（SVG，無外部套件）
+  function curveHtml(data) {
+    var h = (data.history || []).slice(-14);
+    if (h.length < 2) return '<p class="muted curve-empty">累積兩天以上的作答紀錄後，這裡會出現學習曲線。</p>';
+    var W = 640, H = 220, P = 30;
+    var pts = h.map(function (d, i) {
+      var t = d.right + d.wrong, v = t ? d.right / t * 100 : 0;
+      return { x: P + i * (W - 2 * P) / (h.length - 1), y: H - P - v / 100 * (H - 2 * P), v: Math.round(v), label: d.day.slice(5) };
+    });
+    var line = pts.map(function (p, i) { return (i ? "L" : "M") + p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
+    var area = line + " L" + pts[pts.length - 1].x.toFixed(1) + "," + (H - P) + " L" + pts[0].x.toFixed(1) + "," + (H - P) + " Z";
+    var grid = [0, 50, 100].map(function (g) {
+      var y = H - P - g / 100 * (H - 2 * P);
+      return '<line x1="' + P + '" x2="' + (W - P) + '" y1="' + y + '" y2="' + y + '" class="grid"/><text x="4" y="' + (y + 4) + '" class="axis">' + g + '%</text>';
+    }).join("");
+    var dots = pts.map(function (p) {
+      return '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="5" class="dot"><title>' + p.label + '：' + p.v + '%</title></circle>' +
+        '<text x="' + p.x.toFixed(1) + '" y="' + (H - 8) + '" class="axis" text-anchor="middle">' + p.label + '</text>';
+    }).join("");
+    return '<div class="curve-wrap"><svg viewBox="0 0 ' + W + ' ' + H + '" class="curve" role="img" aria-label="每日正確率學習曲線">' +
+      '<defs><linearGradient id="curveFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#c084fc" stop-opacity=".45"/><stop offset="1" stop-color="#c084fc" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="curveLine" x1="0" x2="1"><stop offset="0" stop-color="#5ee7ff"/><stop offset="1" stop-color="#ff6fb5"/></linearGradient></defs>' +
+      grid + '<path d="' + area + '" fill="url(#curveFill)"/><path d="' + line + '" class="line" stroke="url(#curveLine)"/>' + dots + '</svg></div>';
   }
   function addWrong(data, unit, q, a) {
     if (data.wrong.some(function (w) { return w.q === q; })) return;
@@ -869,7 +908,7 @@
       return '<li><a href="#/unit/' + esc(id) + '">' + esc(u ? u.title : id) + '</a><span class="rstatus due">錯 ' + byUnit[id] + ' 題</span></li>';
     }).join("") : '<li class="muted">目前沒有需要加強的單元，太棒了！</li>';
     return '<section class="panel"><h2>🧠 學習分析</h2><p class="muted">依作答紀錄計算各科正確率，並列出錯最多的單元。</p>' +
-      rows + '<h3>建議優先複習</h3><ul class="review-list">' + recs + '</ul></section>';
+      rows + '<h3>每日正確率（最近 14 天）</h3>' + curveHtml(data) + '<h3>建議優先複習</h3><ul class="review-list">' + recs + '</ul></section>';
   }
 
   function startMock(override) {

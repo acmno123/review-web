@@ -321,6 +321,14 @@
       if (res.data && res.data.error) return { data: null, error: res.data.error };
       return { data: res.data, error: null };
     }
+    ,
+
+    reportMessage: async function (msgId, reason) {
+      need();
+      var id = await currentUserId();
+      if (!id) return { data: null, error: "請先登入" };
+      return wrap(client.from("reports").insert({ reporter: id, message_id: Number(msgId), reason: String(reason || "") }));
+    }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列

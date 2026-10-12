@@ -527,3 +527,20 @@ label { color: var(--ink-soft); font-weight: 700; }
 }
 @keyframes pulse-combo { 50% { box-shadow: 0 16px 40px -8px rgba(239,68,68,.95); transform: scale(1.03); } }
 @media (prefers-reduced-motion: reduce) { .combo { animation: none; } }
+
+/* 學習曲線 */
+.curve-wrap {
+  margin: 10px 0 22px; padding: 16px 12px 8px; border-radius: 22px;
+  background: linear-gradient(180deg, rgba(139,155,255,.10), transparent); border: 1px solid var(--line);
+}
+.curve { width: 100%; height: auto; display: block; overflow: visible; }
+.curve .grid { stroke: var(--line-strong); stroke-dasharray: 4 6; }
+.curve .axis { fill: var(--muted); font-size: 12px; font-weight: 600; }
+.curve .line { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px rgba(94,231,255,.55)); }
+.curve .dot { fill: #fff; stroke: #c084fc; stroke-width: 3; transition: r .2s; cursor: pointer; }
+.curve .dot:hover { r: 8; }
+.curve-empty { margin: 8px 0 18px; }
+
+/* 檢舉按鈕 */
+.linklike-sm { color: var(--muted); }
+.linklike-sm:hover { color: var(--bad); }
