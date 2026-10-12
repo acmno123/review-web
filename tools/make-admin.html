@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>產生管理員設定</title>
+  <style>
+    body { font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 18px; color: #1e293b; line-height: 1.7; }
+    h1 { font-size: 1.5rem; }
+    label { display: block; font-weight: 600; margin-top: 14px; }
+    input { width: 100%; padding: 10px 12px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+    button { margin-top: 16px; padding: 10px 20px; border: none; border-radius: 10px; color: #fff; font: inherit; font-weight: 700; cursor: pointer; background: linear-gradient(90deg, #4f46e5, #7c3aed); }
+    textarea { width: 100%; height: 150px; margin-top: 10px; font-family: Consolas, monospace; font-size: .9rem; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; }
+    .note { background: #fef3c7; border-radius: 10px; padding: 10px 14px; color: #78350f; }
+  </style>
+</head>
+<body>
+  <h1>產生管理員設定</h1>
+  <p class="note">請在你自己的電腦上使用這個頁面。密碼只會在瀏覽器裡計算，不會被上傳到任何地方。</p>
+  <label>管理員帳號<input id="user" value="admin" autocomplete="off"></label>
+  <label>管理員密碼（至少 8 字元）<input id="pass" type="password" autocomplete="new-password"></label>
+  <button id="make">產生設定</button>
+  <p>把下面的內容完整複製，取代 <code>js/admin-config.js</code> 的內容，存檔後重新整理網站即可：</p>
+  <textarea id="out" readonly></textarea>
+
+  <script>
+    function hex(buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    }
+    document.getElementById("make").addEventListener("click", async function () {
+      var user = document.getElementById("user").value.trim();
+      var pass = document.getElementById("pass").value;
+      if (!user || pass.length < 8) { alert("帳號不可為空，密碼至少 8 個字元。"); return; }
+      if (!window.crypto || !crypto.subtle) { alert("此瀏覽器無法計算雜湊，請改用 Chrome、Edge 或 Firefox。"); return; }
+      var saltBytes = new Uint8Array(16);
+      crypto.getRandomValues(saltBytes);
+      var salt = hex(saltBytes);
+      var digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + ":" + pass));
+      var hash = hex(digest);
+      document.getElementById("out").value =
+        "window.ADMIN_CONFIG = {\n" +
+        "  username: " + JSON.stringify(user) + ",\n" +
+        "  salt: " + JSON.stringify(salt) + ",\n" +
+        "  hash: " + JSON.stringify(hash) + "\n" +
+        "};";
+    });
+  </script>
+</body>
+</html>
