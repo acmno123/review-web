@@ -16,12 +16,11 @@
 2. 打開本專案的 `supabase/schema.sql`，整段貼上，按 **Run**。
 3. 若出現錯誤，把錯誤訊息貼給我，我再修正。
 
-## 4. 設定管理員
-1. 先在網站註冊一個帳號（這就是你的管理員帳號）。
-2. 回到 SQL Editor，執行（把帳號換成你的）：
-   ```sql
-   update public.profiles set role = 'admin' where lower(username) = 'your_admin_name';
-   ```
+## 4. 設定管理員（在後台改權限）
+1. 在網站上用你要當管理員的帳號註冊一次（任何人都能註冊）。
+2. 到 Supabase 後台 **Table Editor → profiles**。
+3. 找到你的帳號那一列，把 `role` 從 `user` 改成 `admin`，儲存。
+4. 重新整理網站，導覽列會出現「管理後台」。
 
 ## 5. 填入連線設定
 編輯 `js/supabase-config.js`，把 `url` 與 `anonKey` 換成第 1 步複製的值。
@@ -33,7 +32,7 @@
 ## 安全注意事項
 - **anon key 可以公開**，它的權限由資料表的 RLS 規則控制。
 - **service_role key 絕對不可以放進前端或 GitHub**。
-- 管理員身分只由資料庫的 `profiles.role` 決定，一般使用者無法自行改成管理員。
+- 管理員身分只由資料庫的 `profiles.role` 決定，一般使用者無法自行改成管理員。網站原始碼中沒有任何管理員密碼。
 
 ## 第二步：執行 user_state 資料表（已執行過 schema.sql 的專案）
 到 SQL Editor 執行 `supabase/02-user-state.sql`。這個檔案存放每位使用者的學習資料（單元進度、錯題、成就、筆記、每日目標、模擬考紀錄）。新專案若是先執行 schema.sql，也要執行這個檔案。
