@@ -229,11 +229,12 @@
   }
   function todayCount(data) { return data.today.day === today() ? data.today.count : 0; }
   // 記錄每科的作答結果（用於學習分析）
-  function logAttempt(data, unit, ok) {
+  function logAttempt(data, unit, ok, ms) {
     data.stats = data.stats || {};
     var key = (unit && unit.subjectId) || "other";
     var row = data.stats[key] || { right: 0, wrong: 0 };
     if (ok) row.right += 1; else row.wrong += 1;
+    if (typeof ms === "number" && ms >= 0) { row.ms = (row.ms || 0) + ms; row.timed = (row.timed || 0) + 1; }
     data.stats[key] = row;
     // 每日紀錄（最多保留 60 天），用於學習曲線
     var day = isoDay();
@@ -411,7 +412,7 @@
   function newPractice(unit) {
     var seen = {};
     var item = pickNew(unit, null, seen);
-    return { unit: unit, q: item.q, a: item.a, lv: item.lv, status: "", seen: seen };
+    return { unit: unit, q: item.q, a: item.a, lv: item.lv, status: "", seen: seen, shownAt: Date.now() };
   }
   // 作答方式：type 輸入、choice 選擇題
   var answerMode = "choice";
@@ -477,7 +478,7 @@
         rec.correct = (rec.correct || 0) + 1;
         data.units[practice.unit.id] = rec;
         data.wrong = data.wrong.filter(function (w) { return w.q !== practice.q; });
-        logAttempt(data, practice.unit, true);
+        logAttempt(data, practice.unit, true, Date.now() - (practice.shownAt || Date.now()));
         combo += 1;
         if (combo >= 3 && window.FX) FX.burst(document.querySelector("#practice-box .pq"));
         if (combo >= 5 && combo % 5 === 0 && window.FX) FX.burst(document.querySelector("#practice-box .pq"));
@@ -896,9 +897,10 @@
     var stats = data.stats || {};
     var rows = SUBJECTS.map(function (s) {
       var r = stats[s.id] || { right: 0, wrong: 0 }, t = r.right + r.wrong, p = t ? Math.round(r.right / t * 100) : 0;
+      var avg = r.timed ? (r.ms / r.timed / 1000).toFixed(1) + " 秒" : "—";
       return '<div class="subject-row"><span class="subject-name">' + (ICON[s.id] || "") + ' ' + esc(s.name) + '</span>' +
         '<div class="bar"><div class="bar-fill" style="width:' + p + '%"></div></div>' +
-        '<span class="subject-num">' + p + '%（' + t + ' 題）</span></div>';
+        '<span class="subject-num">' + p + '%・' + t + ' 題・平均 ' + avg + '</span></div>';
     }).join("");
     var byUnit = {};
     data.wrong.forEach(function (w) { byUnit[w.unitId] = (byUnit[w.unitId] || 0) + 1; });
@@ -1039,7 +1041,83 @@
     app.innerHTML = html;
   }
 
+  function viewRegister() {
+    app.innerHTML =
+      '<div class="reg-wrap"><div class="reg-card">' +
+      '<div class="reg-head"><span class="reg-orb">✨</span><div><h1>建立帳號</h1>' +
+      '<p class="muted">約 30 秒完成註冊，開始你的複習之旅</p></div></div>' +
+      '<form data-form="register" class="reg-form" novalidate>' +
+      '<div class="fld" data-fld="username"><label>帳號<span class="hint">3–20 字，英數字或底線</span></label>' +
+        '<div class="ctl"><input type="text" name="username" autocomplete="username" maxlength="20" placeholder="例如 study_wang" autofocus><span class="ico"></span></div><p class="fmsg"></p></div>' +
+      '<div class="fld" data-fld="nickname"><label>顯示名稱<span class="hint">選填，同學會看到的名字</span></label>' +
+        '<div class="ctl"><input type="text" name="nickname" maxlength="12" placeholder="例如 小王"><span class="count">0/12</span></div></div>' +
+      '<div class="fld" data-fld="password"><label>密碼<span class="hint">至少 6 字元，越長越安全</span></label>' +
+        '<div class="ctl"><input type="password" name="password" autocomplete="new-password" minlength="6" placeholder="設定密碼">' +
+        '<button type="button" class="eye" data-action="toggle-pw" data-target="password" aria-label="顯示或隱藏密碼">👁</button></div>' +
+        '<div class="meter"><span></span><span></span><span></span><span></span></div><p class="fmsg meter-label"></p></div>' +
+      '<div class="fld" data-fld="confirm"><label>再輸入一次密碼</label>' +
+        '<div class="ctl"><input type="password" name="confirm" autocomplete="new-password" placeholder="再輸入一次"><span class="ico"></span></div><p class="fmsg"></p></div>' +
+      '<ul class="rules">' +
+        '<li data-rule="user"><span class="dot"></span>帳號格式正確</li>' +
+        '<li data-rule="pw"><span class="dot"></span>密碼至少 6 字元</li>' +
+        '<li data-rule="match"><span class="dot"></span>兩次密碼一致</li>' +
+        '<li data-rule="terms"><span class="dot"></span>已同意社群規範</li>' +
+      '</ul>' +
+      '<label class="terms"><input type="checkbox" name="terms"><span>我同意遵守社群規範，不發表不當言論</span></label>' +
+      '<div class="msg" id="auth-msg"></div>' +
+      '<button type="submit" class="btn btn-primary btn-block btn-lg" disabled>建立帳號</button>' +
+      '</form>' +
+      '<p class="reg-foot muted">已經有帳號？<a href="#/login">前往登入</a></p>' +
+      '</div></div>';
+    validateRegister(document.querySelector('form[data-form="register"]'));
+  }
+
+  // 密碼強度：0 太短、1 弱、2 普通、3 好、4 很強
+  function pwStrength(pw) {
+    if (pw.length < 6) return 0;
+    var score = 1;
+    if (pw.length >= 8) score++;
+    if (/[A-Za-z]/.test(pw) && /\d/.test(pw)) score++;
+    if (pw.length >= 12 || /[^A-Za-z0-9]/.test(pw) || (/[A-Z]/.test(pw) && /[a-z]/.test(pw))) score++;
+    return Math.min(score, 4);
+  }
+
+  // 即時驗證：更新各欄位的狀態、強度條、檢查清單與送出按鈕
+  function validateRegister(form) {
+    if (!form) return;
+    var v = form.elements, userOk = /^[A-Za-z0-9_]{3,20}$/.test(v.username.value.trim());
+    var pw = v.password.value, match = pw.length > 0 && pw === v.confirm.value, termsOk = v.terms.checked;
+    var fld = function (name) { return form.querySelector('[data-fld="' + name + '"]'); };
+    var setFld = function (name, state, msg) {
+      var el = fld(name); if (!el) return;
+      el.classList.remove("is-ok", "is-err");
+      if (state) el.classList.add(state);
+      var m = el.querySelector(".fmsg"); if (m) m.textContent = msg || "";
+    };
+    var u = v.username.value.trim();
+    if (!u) setFld("username", "", "");
+    else setFld("username", userOk ? "is-ok" : "is-err", userOk ? "✓ 格式正確" : "請使用 3–20 個英數字或底線");
+    var nl = v.nickname.value.length;
+    var cnt = fld("nickname").querySelector(".count"); if (cnt) cnt.textContent = nl + "/12";
+    var score = pw ? pwStrength(pw) : 0;
+    var meter = fld("password").querySelector(".meter");
+    Array.prototype.forEach.call(meter.children, function (bar, i) { bar.className = i < score ? "lv-" + score : ""; });
+    var labels = ["", "太短（至少 6 字元）", "弱", "普通", "好", "很強"];
+    var lbl = fld("password").querySelector(".meter-label");
+    lbl.textContent = pw ? "密碼強度：" + ["太短", "弱", "普通", "好", "很強"][score] : "";
+    setFld("password", pw ? (pw.length >= 6 ? "is-ok" : "is-err") : "", pw && pw.length < 6 ? "至少需要 6 字元" : "");
+    if (v.confirm.value) setFld("confirm", match ? "is-ok" : "is-err", match ? "✓ 密碼一致" : "兩次輸入的密碼不一致");
+    else setFld("confirm", "", "");
+    var rules = { user: userOk, pw: pw.length >= 6, match: match, terms: termsOk };
+    Object.keys(rules).forEach(function (k) {
+      var li = form.querySelector('[data-rule="' + k + '"]');
+      if (li) li.classList.toggle("done", rules[k]);
+    });
+    form.querySelector('button[type="submit"]').disabled = !(userOk && pw.length >= 6 && match && termsOk);
+  }
+
   function viewAuth(mode) {
+    if (mode === "register") return viewRegister();
     var isLogin = mode === "login";
     app.innerHTML = '<div class="auth-box"><h1>' + (isLogin ? "登入" : "註冊") + '</h1>' +
       '<form data-form="' + mode + '"><label>帳號（3–20 字，英數字或底線）<input type="text" name="username" required autofocus maxlength="20"></label>' +
@@ -1354,6 +1432,12 @@
       render();
       return;
     }
+    if (action === "toggle-pw") {
+      var pwForm = el.closest("form");
+      var pwIn = pwForm && pwForm.elements[el.getAttribute("data-target")];
+      if (pwIn) pwIn.type = pwIn.type === "password" ? "text" : "password";
+      return;
+    }
     if (action === "amode") {
       answerMode = el.getAttribute("data-mode") === "choice" ? "choice" : "type";
       renderPractice();
@@ -1373,7 +1457,7 @@
     if (action === "next") {
       if (!practice) return;
       var item = pickNew(practice.unit, practice.q, practice.seen || {});
-      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = [];
+      practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = []; practice.shownAt = Date.now();
       renderPractice();
       return;
     }
@@ -1593,6 +1677,16 @@
     mockCfg[key] = (key === "count" || key === "level") ? Number(el.value) : el.value;
   });
 
+  /* 註冊表單即時驗證 */
+  document.addEventListener("input", function (e) {
+    var f = e.target && e.target.form;
+    if (f && f.getAttribute("data-form") === "register") validateRegister(f);
+  });
+  document.addEventListener("change", function (e) {
+    var f = e.target && e.target.form;
+    if (f && f.getAttribute("data-form") === "register") validateRegister(f);
+  });
+
   /* Enter 送出答案 */
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" || !e.target || e.target.tagName !== "INPUT") return;
@@ -1690,6 +1784,12 @@
       var password = form.password.value;
       if (msg) msg.textContent = "";
       if (!username || !password) { if (msg) msg.textContent = "帳號與密碼不可為空"; return; }
+      if (mode === "register" && form.elements.confirm && form.elements.confirm.value !== password) {
+        msg.textContent = "兩次輸入的密碼不一致"; return;
+      }
+      if (mode === "register" && form.elements.terms && !form.elements.terms.checked) {
+        msg.textContent = "請先勾選同意社群規範"; return;
+      }
       if (CloudSync.enabled()) {
         if (mode === "register") {
           if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) { msg.textContent = "帳號需為 3–20 個英數字或底線"; return; }
