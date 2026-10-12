@@ -309,7 +309,7 @@
         res = bossFn ? bossFn() : G[p.gen](Math.min(lv, 3));
         res.lv = lv;
       } else {
-        res = { q: p.item[0], a: p.item[1], lv: p.item[2] || level || 1 };
+        res = { q: p.item[0], a: p.item[1], lv: p.item[2] || level || 1, exp: p.item.exp };
       }
       tries++;
     } while (res.q === lastQ && tries < 6 && pool.length > 1);
