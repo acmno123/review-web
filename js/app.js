@@ -378,7 +378,7 @@
   /* ---------- 導覽列 ---------- */
   function renderNav() {
     var user = currentUser(), theme = load(K_THEME, "dark");
-    var html = '<a href="#/review">複習</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a><a href="#/people">社群</a><a href="#/chat">聊天室</a>';
+    var html = '<a href="#/review">複習</a><a href="#/map">知識星圖</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a><a href="#/people">社群</a><a href="#/chat">聊天室</a>';
     if (user) {
       html += '<a href="#/dashboard">我的學習</a><a href="#/u/' + encodeURIComponent(user) + '">個人檔案</a>';
       if (isAdmin()) html += '<a href="#/admin">管理後台</a>';
@@ -1463,6 +1463,7 @@
     if (path[0] === "review") return path[1] ? viewReview(path[1]) : viewReviewList();
     if (path[0] === "mock") return viewMock();
     if (path[0] === "wrong") return viewWrong();
+    if (path[0] === "map") return window.MapPage ? window.MapPage.render() : notFound();
     if (path[0] === "people") return window.Social ? window.Social.community() : notFound();
     if (path[0] === "u") return window.Social ? window.Social.profile(decodeURIComponent(path[1] || "")) : notFound();
     if (path[0] === "chat") return window.Social ? window.Social.chat() : notFound();
@@ -1967,7 +1968,13 @@
     };
   };
   window.AppKit = {
-    esc: esc, toast: toast, render: render, ICON: ICON, COLOR: COLOR, fmtDate: fmtDate, isAdmin: isAdmin
+    esc: esc, toast: toast, render: render, ICON: ICON, COLOR: COLOR, fmtDate: fmtDate, isAdmin: isAdmin,
+    SUBJECTS: SUBJECTS,
+    getUnits: function () { return ALL_UNITS; },
+    currentUser: currentUser,
+    getData: getData,
+    reviewStatus: reviewStatus,
+    setHTML: function (html) { app.innerHTML = html; }
   };
 
   window.addEventListener("hashchange", render);

@@ -648,3 +648,58 @@ label { color: var(--ink-soft); font-weight: 700; }
 .rep-meta { color: var(--muted); font-size: .85rem; }
 .rep-text { margin: 6px 0 0; font-size: 1rem; word-break: break-word; }
 .rep-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* =====================================================================
+ * 知識星圖
+ * ===================================================================== */
+.map-head { text-align: left; }
+.map-stats {
+  display: flex; align-items: center; gap: 30px; flex-wrap: wrap; margin: 6px 0 22px;
+  padding: 24px 30px; border-radius: 28px; background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.map-counts { display: flex; gap: 14px; flex-wrap: wrap; }
+.map-counts > div {
+  min-width: 120px; padding: 14px 18px; border-radius: 18px; background: rgba(255,255,255,.04); border: 1px solid var(--line);
+}
+.map-counts .num { display: block; font-size: 1.8rem; font-weight: 900; font-variant-numeric: tabular-nums;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.map-counts .lbl { color: var(--ink-soft); font-weight: 700; font-size: .85rem; }
+.map-chips { margin: 18px 0 10px; }
+.map-legend { display: flex; gap: 18px; flex-wrap: wrap; color: var(--ink-soft); font-weight: 700; font-size: .88rem; margin-bottom: 14px; }
+.map-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.lg { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.lg.todo { background: rgba(150,165,255,.35); }
+.lg.done { background: #34d399; box-shadow: 0 0 10px #34d399; }
+.lg.due { background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
+
+.map-wrap {
+  position: relative; overflow-x: auto; padding: 18px 12px 26px; border-radius: 30px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(139,155,255,.18), transparent 45%),
+    radial-gradient(circle at 85% 70%, rgba(255,111,181,.12), transparent 50%),
+    var(--glass);
+  border: 1px solid var(--line-strong); box-shadow: var(--shadow);
+}
+.star-svg { display: block; width: 100%; min-width: 860px; height: auto; }
+.star-svg .band { fill: var(--ink-soft); font-size: 17px; font-weight: 900; letter-spacing: .04em; }
+.star-svg .edge { stroke: rgba(150,165,255,.35); stroke-width: 2; stroke-dasharray: 5 6; }
+.star-svg .idx { fill: #fff; font-size: 15px; font-weight: 900; text-anchor: middle; }
+.star-svg .lbl { fill: var(--ink-soft); font-size: 13px; font-weight: 700; text-anchor: middle; }
+.star-svg .node { cursor: pointer; }
+.star-svg .node .core { transition: transform .35s cubic-bezier(.2,.8,.2,1), filter .3s; transform-box: fill-box; transform-origin: center; }
+.star-svg .node:hover .core { transform: scale(1.14); }
+.star-svg .halo { fill: transparent; transition: fill .3s; }
+/* 未複習：暗色星 */
+.star-svg .st-todo .core { fill: rgba(70,80,130,.9); stroke: rgba(150,165,255,.5); stroke-width: 2; }
+.star-svg .st-todo .idx { fill: var(--ink-soft); }
+/* 已確認：綠色發光 */
+.star-svg .st-done .core { fill: #34d399; filter: url(#starGlow); }
+.star-svg .st-done .halo { fill: rgba(52,211,153,.14); }
+/* 該再複習：金色脈動 */
+.star-svg .st-due .core { fill: #fbbf24; filter: url(#starGlow); animation: starPulse 2.2s ease-in-out infinite; }
+.star-svg .st-due .halo { fill: rgba(251,191,36,.16); animation: haloPulse 2.2s ease-in-out infinite; }
+@keyframes starPulse { 50% { transform: scale(1.12); } }
+@keyframes haloPulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .star-svg .st-due .core, .star-svg .st-due .halo { animation: none; }
+}
