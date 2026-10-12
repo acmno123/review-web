@@ -1,6 +1,16 @@
 (function () {
   "use strict";
 
+  var CloudSync = window.CloudSync || {
+    enabled: function () { return false; },
+    boot: function () { return Promise.resolve(); },
+    signIn: function () { return Promise.resolve({ error: "尚未載入雲端模組" }); },
+    signUp: function () { return Promise.resolve({ error: "尚未載入雲端模組" }); },
+    signOut: function () {},
+    refreshUsers: function () { return Promise.resolve(); },
+    users: function () { return []; },
+    setDisabled: function () { return Promise.resolve({ error: null }); }
+  };
   var GRADES = window.GRADES;
   var SUBJECTS = window.SUBJECTS;
   var QUIZ = window.QUIZ;
@@ -173,7 +183,15 @@
   function currentUser() { return load(K_SESSION, null); }
   function isAdmin() {
     var u = currentUser();
-    return !!(ADMIN && u && u === ADMIN.username);
+    if (!u) return false;
+    var cloudAdmin = load("crs_cloud_role", "") === "admin";
+    return !!((ADMIN && u === ADMIN.username) || cloudAdmin);
+  }
+  // 雲端同步後重新載入內容（管理員可能在別處修改過）
+  function reloadContent() {
+    CUSTOM = load(K_CUSTOM, []);
+    VIDEOS = load(K_VIDEOS, {});
+    buildUnits();
   }
   function displayName(user) {
     var rec = getUsers()[user];
@@ -823,6 +841,11 @@
   function viewAdmin(tab, arg) {
     if (!isAdmin()) { toast("需要管理員權限", true); location.hash = "#/login"; return; }
     tab = tab || "users";
+    if (tab !== "users") window.__usersFresh = false;
+    if (CloudSync.enabled() && tab === "users" && !window.__usersFresh) {
+      window.__usersFresh = true;
+      CloudSync.refreshUsers().then(render);
+    }
     var side = [["users", "👥", "帳號管理"], ["units", "📚", "單元管理"], ["content", "➕", "新增單元"],
       ["videos", "🎬", "影片管理"], ["announce", "📢", "公告"], ["system", "⚙️", "系統"]];
     var main;
@@ -898,7 +921,25 @@
       '<button class="btn btn-primary" type="submit">儲存修改</button></form></section>';
   }
 
+  function adminUsersCloud() {
+    var list = CloudSync.users(), me = currentUser();
+    var html = '<section class="panel"><h2>帳號列表（雲端）</h2><p class="muted">共 ' + list.length +
+      ' 個帳號。可以停用或啟用帳號。重設密碼與刪除帳號需要後端函式，目前請到 Supabase 後台處理。</p>' +
+      '<div class="table-wrap"><table class="table"><tr><th>帳號</th><th>暱稱</th><th>身分</th><th>建立日期</th><th>狀態</th><th>操作</th></tr>';
+    list.forEach(function (p, i) {
+      html += '<tr><td><strong>' + esc(p.username) + '</strong></td><td>' + esc(p.nickname || "—") + '</td><td>' +
+        (p.role === "admin" ? '<span class="admin-badge">管理員</span>' : '一般') + '</td><td>' +
+        (p.created_at ? fmtDate(Date.parse(p.created_at)) : "-") + '</td><td>' +
+        (p.disabled ? '<span class="badge">已停用</span>' : '<span class="rstatus done">正常</span>') + '</td><td>' +
+        (p.username === me ? '<span class="muted">（目前登入）</span>' :
+          '<button class="btn btn-sm" data-action="cuser-toggle" data-i="' + i + '">' + (p.disabled ? "啟用" : "停用") + '</button>') +
+        '</td></tr>';
+    });
+    return html + '</table></div></section>';
+  }
+
   function adminUsers() {
+    if (CloudSync.enabled()) return adminUsersCloud();
     var users = getUsers(), names = Object.keys(users).sort(), me = currentUser();
     var html = '<section class="panel"><h2>帳號列表（本瀏覽器）</h2><p class="muted">共 ' + names.length +
       ' 個帳號。管理員只能管理這台裝置上的帳號資料。</p><div class="table-wrap"><table class="table"><tr>' +
@@ -1034,6 +1075,8 @@
     var action = el.getAttribute("data-action");
 
     if (action === "logout") {
+      CloudSync.signOut();
+      window.__usersFresh = false;
       localStorage.removeItem(K_SESSION);
       practice = null; reviewState = null; mockState = null;
       toast("已登出");
@@ -1168,6 +1211,15 @@
     if (action === "mreset") { mockState = { phase: "setup" }; render(); return; }
 
     /* 管理員 */
+    if (action === "cuser-toggle") {
+      var cp = CloudSync.users()[Number(el.getAttribute("data-i"))];
+      if (!cp || cp.username === currentUser()) return;
+      CloudSync.setDisabled(cp.id, !cp.disabled).then(function () {
+        window.__usersFresh = false;
+        CloudSync.refreshUsers().then(function () { toast("已更新帳號狀態"); render(); });
+      });
+      return;
+    }
     if (action === "auser-toggle") {
       var tn = Object.keys(getUsers()).sort()[Number(el.getAttribute("data-i"))];
       var tu = getUsers();
@@ -1178,6 +1230,8 @@
       render();
       return;
     }
+    if (action === "auser-reset" && CloudSync.enabled()) { toast("雲端模式下無法在網站內重設密碼，請到 Supabase 後台處理", true); return; }
+    if (action === "auser-del" && CloudSync.enabled()) { toast("雲端模式下無法在網站內刪除帳號，請到 Supabase 後台處理", true); return; }
     if (action === "auser-reset") { adminResetPassword(Number(el.getAttribute("data-i"))); return; }
     if (action === "auser-del") { adminDeleteUser(Number(el.getAttribute("data-i"))); return; }
     if (action === "uhide") {
@@ -1349,6 +1403,24 @@
       var password = form.password.value;
       if (msg) msg.textContent = "";
       if (!username || !password) { if (msg) msg.textContent = "帳號與密碼不可為空"; return; }
+      if (CloudSync.enabled()) {
+        if (mode === "register") {
+          if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) { msg.textContent = "帳號需為 3–20 個英數字或底線"; return; }
+          if (password.length < 6) { msg.textContent = "密碼至少需要 6 個字元"; return; }
+          var cnick = (form.nickname ? form.nickname.value : "").trim();
+          var rr = await CloudSync.signUp(username, password, cnick);
+          if (rr.error) { msg.textContent = rr.error; return; }
+          toast("註冊成功，請登入");
+          location.hash = "#/login";
+          return;
+        }
+        var lr = await CloudSync.signIn(username, password);
+        if (lr.error) { msg.textContent = lr.error; return; }
+        practice = null; reviewState = null; mockState = null;
+        toast("歡迎回來，" + username);
+        location.hash = lr.role === "admin" ? "#/admin" : "#/dashboard";
+        return;
+      }
       var users = getUsers();
 
       if (mode === "register") {
@@ -1391,4 +1463,8 @@
 
   window.addEventListener("hashchange", render);
   render();
+  CloudSync.boot().then(function () {
+    reloadContent();
+    render();
+  });
 })();
