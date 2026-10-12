@@ -518,3 +518,12 @@ label { color: var(--ink-soft); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   .opt.picked, .opt-k { transform: none !important; }
 }
+
+/* 連續答對標籤 */
+.combo {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 16px; border-radius: 999px;
+  font-weight: 900; color: #fff; background: linear-gradient(120deg, #f59e0b, #ef4444, #ec4899);
+  box-shadow: 0 12px 28px -10px rgba(239,68,68,.8); animation: pulse-combo 1.6s ease-in-out infinite;
+}
+@keyframes pulse-combo { 50% { box-shadow: 0 16px 40px -8px rgba(239,68,68,.95); transform: scale(1.03); } }
+@media (prefers-reduced-motion: reduce) { .combo { animation: none; } }

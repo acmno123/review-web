@@ -208,6 +208,8 @@
     d.today = d.today || { day: "", count: 0 };
     d.streak = d.streak || { day: "", count: 0 };
     d.bestMock = d.bestMock || 0;
+    d.stats = d.stats || {};
+    d.dailyDay = d.dailyDay || "";
     return d;
   }
   function setData(user, data) { save(K_DATA + user, data); }
@@ -226,6 +228,14 @@
     data.today.count += n || 1;
   }
   function todayCount(data) { return data.today.day === today() ? data.today.count : 0; }
+  // 記錄每科的作答結果（用於學習分析）
+  function logAttempt(data, unit, ok) {
+    data.stats = data.stats || {};
+    var key = (unit && unit.subjectId) || "other";
+    var row = data.stats[key] || { right: 0, wrong: 0 };
+    if (ok) row.right += 1; else row.wrong += 1;
+    data.stats[key] = row;
+  }
   function addWrong(data, unit, q, a) {
     if (data.wrong.some(function (w) { return w.q === q; })) return;
     data.wrong.push({ q: q, a: a, unitId: unit.id, title: unit.title });
@@ -366,6 +376,7 @@
   }
   // 作答方式：type 輸入、choice 選擇題
   var answerMode = "choice";
+  var combo = 0; // 目前連續答對題數
   var wrongOpts = []; // 錯題本目前顯示的選項
 
   function shuffleArr(arr) {
@@ -427,6 +438,10 @@
         rec.correct = (rec.correct || 0) + 1;
         data.units[practice.unit.id] = rec;
         data.wrong = data.wrong.filter(function (w) { return w.q !== practice.q; });
+        logAttempt(data, practice.unit, true);
+        combo += 1;
+        if (combo >= 3 && window.FX) FX.burst(document.querySelector("#practice-box .pq"));
+        if (combo >= 5 && combo % 5 === 0 && window.FX) FX.burst(document.querySelector("#practice-box .pq"));
         addToday(data);
         touchStreak(data);
         setData(user, data);
@@ -438,6 +453,7 @@
       return;
     }
     practice.status = "wrong";
+    combo = 0;
     if (answerMode === "choice" && practice.opts) {
       var idx = practice.opts.indexOf(val);
       practice.badIdx = practice.badIdx || [];
@@ -446,6 +462,7 @@
     if (user) {
       var d2 = getData(user);
       addWrong(d2, practice.unit, practice.q, practice.a);
+      logAttempt(d2, practice.unit, false);
       setData(user, d2);
     }
     renderPractice();
@@ -489,6 +506,7 @@
     html += '<div class="actions"><button class="btn" data-action="next">換一題</button>' +
       '<button class="btn btn-ghost" data-action="reveal">看答案</button></div>';
 
+    if (combo >= 2) html = '<div class="combo fx-in">🔥 連續答對 ' + combo + ' 題</div>' + html;
     box.innerHTML = html;
     var inp = document.getElementById("practice-input");
     if (inp && !inp.disabled) inp.focus();
@@ -804,14 +822,57 @@
       '<section class="card-block"><h2><span class="step">5</span>題數</h2>' +
         seg("count", mockCfg.count, [[10, "10 題"], [15, "15 題"], [20, "20 題"]]) + '</section>' +
       '<section class="card-block start-card"><div><span class="eyebrow">本次設定</span><p>' + esc(scope) + '</p></div>' +
-        '<button class="btn btn-primary btn-lg" data-action="mstart">開始模擬考</button></section>' +
+        '<div class="actions"><button class="btn" data-action="daily">🌟 今日挑戰（10 題）</button>' +
+        '<button class="btn btn-primary btn-lg" data-action="mstart">開始模擬考</button></div></section>' +
       '</div>';
     var user = currentUser();
     if (user) html += '<section class="card-block"><h2>最近的成績</h2>' + mockHistoryTable(getData(user).mocks.slice(-5).reverse()) + '</section>';
     app.innerHTML = html;
   }
 
-  function startMock() {
+  // 錯題重練：用錯題本的題目組成一份模擬考
+  function startRetry() {
+    var user = currentUser();
+    if (!user) { toast("請先登入", true); return; }
+    var wrong = getData(user).wrong.slice(0, 10);
+    if (!wrong.length) { toast("錯題本是空的", true); return; }
+    var questions = wrong.map(function (w) {
+      var unit = findUnit(w.unitId) || { id: w.unitId, title: w.title, bank: [], subjectId: null };
+      return { unit: unit, q: w.q, a: w.a, lv: 1, opts: makeOptions(w.a, unit) };
+    });
+    mockState = { phase: "test", questions: questions, results: [], score: 0, scope: "錯題重練", picks: {} };
+    render();
+  }
+
+  // 每日挑戰：全科混合 10 題，每天限一次
+  function startDaily() {
+    var user = currentUser();
+    if (user && getData(user).dailyDay === today()) { toast("今天的挑戰已完成，明天再來！", true); return; }
+    mockCfg.grade = "all"; mockCfg.subject = "all"; mockCfg.count = 10; mockCfg.level = 0; mockCfg.qlang = "zh";
+    startMock("每日挑戰");
+  }
+
+  // 學習分析：各科正確率與建議優先複習的單元
+  function analyticsHtml(data) {
+    var stats = data.stats || {};
+    var rows = SUBJECTS.map(function (s) {
+      var r = stats[s.id] || { right: 0, wrong: 0 }, t = r.right + r.wrong, p = t ? Math.round(r.right / t * 100) : 0;
+      return '<div class="subject-row"><span class="subject-name">' + (ICON[s.id] || "") + ' ' + esc(s.name) + '</span>' +
+        '<div class="bar"><div class="bar-fill" style="width:' + p + '%"></div></div>' +
+        '<span class="subject-num">' + p + '%（' + t + ' 題）</span></div>';
+    }).join("");
+    var byUnit = {};
+    data.wrong.forEach(function (w) { byUnit[w.unitId] = (byUnit[w.unitId] || 0) + 1; });
+    var top = Object.keys(byUnit).sort(function (a, b) { return byUnit[b] - byUnit[a]; }).slice(0, 3);
+    var recs = top.length ? top.map(function (id) {
+      var u = findUnit(id);
+      return '<li><a href="#/unit/' + esc(id) + '">' + esc(u ? u.title : id) + '</a><span class="rstatus due">錯 ' + byUnit[id] + ' 題</span></li>';
+    }).join("") : '<li class="muted">目前沒有需要加強的單元，太棒了！</li>';
+    return '<section class="panel"><h2>🧠 學習分析</h2><p class="muted">依作答紀錄計算各科正確率，並列出錯最多的單元。</p>' +
+      rows + '<h3>建議優先複習</h3><ul class="review-list">' + recs + '</ul></section>';
+  }
+
+  function startMock(override) {
     var pool = ALL_UNITS.filter(function (u) {
       return (mockCfg.grade === "all" || u.grade === Number(mockCfg.grade)) &&
              (mockCfg.subject === "all" || u.subjectId === mockCfg.subject) &&
@@ -830,7 +891,7 @@
     }
     var subj = mockCfg.subject === "all" ? "全部科目" : findSubject(mockCfg.subject).name;
     var grade = mockCfg.grade === "all" ? "全部年級" : mockCfg.grade + " 年級";
-    mockState = { phase: "test", questions: questions, results: [], score: 0, scope: grade + "・" + subj, picks: {} };
+    mockState = { phase: "test", questions: questions, results: [], score: 0, scope: override || (grade + "・" + subj), picks: {} };
     render();
   }
   function viewMockTest() {
@@ -887,6 +948,8 @@
       var data = getData(user);
       mockState.results.forEach(function (r, i) {
         var it = mockState.questions[i];
+        logAttempt(data, it.unit, r.ok);
+        if (r.ok) data.wrong = data.wrong.filter(function (w) { return w.q !== it.q; });
         if (r.ok) {
           var rec = unitRecord(data, it.unit.id);
           rec.correct = (rec.correct || 0) + 1;
@@ -896,7 +959,8 @@
           addWrong(data, it.unit, it.q, it.a);
         }
       });
-      data.mocks.push({ date: Date.now(), score: pct, scope: mockState.scope });
+      if (mockState.scope !== "錯題重練") data.mocks.push({ date: Date.now(), score: pct, scope: mockState.scope });
+      if (mockState.scope === "每日挑戰") data.dailyDay = today();
       if (data.mocks.length > MAX_MOCK_HISTORY) data.mocks = data.mocks.slice(-MAX_MOCK_HISTORY);
       data.bestMock = Math.max(data.bestMock, pct);
       touchStreak(data);
@@ -918,7 +982,8 @@
     if (!data.wrong.length) {
       html += '<section class="panel"><p>目前沒有錯題，太棒了！🎉</p></section>';
     } else {
-      html += '<section class="panel"><p>共 <strong>' + data.wrong.length + '</strong> 題</p>';
+      html += '<section class="panel"><p>共 <strong>' + data.wrong.length + '</strong> 題</p>' +
+        '<div class="actions"><button class="btn btn-primary" data-action="retry">🔁 開始重練（最多 10 題）</button></div>';
       wrongOpts = data.wrong.map(function (w) {
         return makeOptions(w.a, findUnit(w.unitId) || { bank: [], subjectId: null }) || [];
       });
@@ -965,6 +1030,7 @@
       html += '<div class="subject-row"><span class="subject-name">' + (ICON[s.id] || "") + ' ' + esc(s.name) + '</span>' +
         '<div class="bar"><div class="bar-fill" style="width:' + p + '%"></div></div><span class="subject-num">' + d + ' / ' + t + '</span></div>';
     });
+    html += analyticsHtml(data);
     html += '</section><section class="panel"><h2>模擬考紀錄</h2>' + mockHistoryTable(data.mocks.slice(-5).reverse()) + '</section>';
     html += '<section class="panel"><h2>💾 備份與還原</h2><p class="muted">資料只存在這台瀏覽器。定期下載備份，換電腦或清除瀏覽器資料時可以還原。</p>' +
       '<div class="actions"><button class="btn" data-action="export-user">下載我的學習資料</button>' +
@@ -1301,6 +1367,8 @@
         v = rin ? rin.value : "";
         if (!v.trim()) { toast("請先輸入答案", true); return; }
       }
+      var lu = currentUser();
+      if (lu) { var ld = getData(lu); logAttempt(ld, reviewState.unit, QUIZ.check(v, it.a)); setData(lu, ld); }
       if (QUIZ.check(v, it.a)) {
         it.ok = true;
         var ru = currentUser();
@@ -1353,6 +1421,8 @@
       return;
     }
     if (action === "mstart") { startMock(); return; }
+    if (action === "daily") { startDaily(); return; }
+    if (action === "retry") { startRetry(); return; }
     if (action === "mpick") {
       if (!mockState || !mockState.picks) return;
       var mq = Number(el.getAttribute("data-q"));
