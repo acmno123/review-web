@@ -80,3 +80,6 @@ supabase functions deploy admin-users
 
 ## 第六步：註冊即時檢查帳號
 到 SQL Editor 執行 `supabase/05-username-check.sql`。之後註冊時輸入帳號會自動檢查是否已被使用。
+
+## 第七步：管理員處理檢舉
+到 SQL Editor 執行 `supabase/06-admin-reports.sql`。之後管理後台出現「檢舉」頁籤，可以刪除違規訊息或忽略檢舉。

@@ -910,7 +910,63 @@
       return '<li><a href="#/unit/' + esc(id) + '">' + esc(u ? u.title : id) + '</a><span class="rstatus due">錯 ' + byUnit[id] + ' 題</span></li>';
     }).join("") : '<li class="muted">目前沒有需要加強的單元，太棒了！</li>';
     return '<section class="panel"><h2>🧠 學習分析</h2><p class="muted">依作答紀錄計算各科正確率，並列出錯最多的單元。</p>' +
-      rows + '<h3>每日正確率（最近 14 天）</h3>' + curveHtml(data) + '<h3>建議優先複習</h3><ul class="review-list">' + recs + '</ul></section>';
+      rows + '<h3>每日正確率（最近 14 天）</h3>' + curveHtml(data) + '<h3>建議優先複習</h3><ul class="review-list">' + recs + '</ul>' +
+      '<div class="actions"><button class="btn btn-primary" data-action="weak">🎯 依弱點練習（10 題）</button></div></section>';
+  }
+
+  // 依弱點練習：優先用錯最多的單元；沒有錯題時，取正確率最低的科目
+  function startWeak() {
+    var user = currentUser();
+    if (!user) { toast("請先登入", true); return; }
+    var data = getData(user), byUnit = {};
+    data.wrong.forEach(function (w) { byUnit[w.unitId] = (byUnit[w.unitId] || 0) + 1; });
+    var pool = Object.keys(byUnit).sort(function (a, b) { return byUnit[b] - byUnit[a]; }).map(findUnit).filter(Boolean);
+    if (!pool.length) {
+      var worst = null, worstP = 101;
+      SUBJECTS.forEach(function (sj) {
+        var r = (data.stats || {})[sj.id], t = r ? r.right + r.wrong : 0;
+        if (t && r.right / t * 100 < worstP) { worstP = r.right / t * 100; worst = sj.id; }
+      });
+      pool = ALL_UNITS.filter(function (u) { return !worst || u.subjectId === worst; });
+    }
+    if (!pool.length) { toast("還沒有足夠的作答紀錄", true); return; }
+    var questions = [], seen = {}, tries = 0;
+    while (questions.length < 10 && tries < 80) {
+      tries++;
+      var u = pool[Math.floor(Math.random() * pool.length)];
+      var it = QUIZ.next(u, null, 0);
+      if (seen[it.q]) continue;
+      seen[it.q] = true;
+      questions.push({ unit: u, q: it.q, a: it.a, lv: it.lv, opts: makeOptions(it.a, u) });
+    }
+    mockState = { phase: "test", questions: questions, results: [], score: 0, scope: "弱點練習", picks: {} };
+    render();
+  }
+
+  // 管理員：檢舉列表（非同步載入，直接寫入 #reports-box）
+  async function loadReports() {
+    var box = document.getElementById("reports-box");
+    if (!box || !window.CloudDB || !window.CloudDB.ready) { if (box) box.innerHTML = '<p class="muted">需要連上雲端才能查看檢舉。</p>'; return; }
+    var r = await window.CloudDB.listReports();
+    if (r.error) { box.innerHTML = '<p class="ng">' + esc(r.error) + '</p>'; return; }
+    if (!r.data.length) { box.innerHTML = '<p class="muted">目前沒有待處理的檢舉。🎉</p>'; return; }
+    var ids = r.data.map(function (x) { return x.message_id; });
+    var msgs = await window.CloudDB.getMessages(ids);
+    var mById = {};
+    (msgs.data || []).forEach(function (m) { mById[m.id] = m; });
+    var uids = (msgs.data || []).map(function (m) { return m.user_id; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+    var pr = await window.CloudDB.getPublicProfilesByIds(uids);
+    var pById = {};
+    (pr.data || []).forEach(function (p) { pById[p.id] = p; });
+    box.innerHTML = '<div class="rep-list">' + r.data.map(function (x) {
+      var m = mById[x.message_id];
+      var who = m && pById[m.user_id] ? pById[m.user_id].username : "（未知）";
+      return '<article class="rep-item"><div class="rep-body"><div class="rep-meta">被檢舉者：<strong>' + esc(who) + '</strong>　' +
+        fmtDate(Date.parse(x.created_at)) + '</div><p class="rep-text">' + esc(m ? m.body : "（訊息已刪除）") + '</p></div>' +
+        '<div class="rep-actions">' +
+        (m ? '<button class="btn btn-sm btn-danger" data-action="rep-del" data-msg="' + m.id + '">刪除訊息</button>' : '') +
+        '<button class="btn btn-sm btn-ghost" data-action="rep-dismiss" data-id="' + x.id + '">忽略檢舉</button></div></article>';
+    }).join("") + '</div>';
   }
 
   function startMock(override) {
@@ -1000,7 +1056,7 @@
           addWrong(data, it.unit, it.q, it.a);
         }
       });
-      if (mockState.scope !== "錯題重練") data.mocks.push({ date: Date.now(), score: pct, scope: mockState.scope });
+      if (mockState.scope !== "錯題重練" && mockState.scope !== "弱點練習") data.mocks.push({ date: Date.now(), score: pct, scope: mockState.scope });
       if (mockState.scope === "每日挑戰") data.dailyDay = today();
       if (data.mocks.length > MAX_MOCK_HISTORY) data.mocks = data.mocks.slice(-MAX_MOCK_HISTORY);
       data.bestMock = Math.max(data.bestMock, pct);
@@ -1193,18 +1249,20 @@
       CloudSync.refreshUsers().then(render);
     }
     var side = [["users", "👥", "帳號管理"], ["units", "📚", "單元管理"], ["content", "➕", "新增單元"],
-      ["videos", "🎬", "影片管理"], ["announce", "📢", "公告"], ["system", "⚙️", "系統"]];
+      ["videos", "🎬", "影片管理"], ["announce", "📢", "公告"], ["reports", "🚩", "檢舉"], ["system", "⚙️", "系統"]];
     var main;
     if (tab === "users") main = adminUsers();
     else if (tab === "units") main = arg ? adminUnitEdit(arg) : adminUnits();
     else if (tab === "content") main = adminContent();
     else if (tab === "videos") main = adminVideos();
     else if (tab === "announce") main = adminAnnounce();
+    else if (tab === "reports") main = '<div id="reports-box"><p class="muted">載入中…</p></div>';
     else main = adminSystem();
     app.innerHTML = '<div class="admin-layout"><aside class="admin-side"><div class="admin-brand">管理後台 <span class="admin-badge">ADMIN</span></div>' +
       side.map(function (t) {
         return '<a class="side-link' + (t[0] === tab ? ' active' : '') + '" href="#/admin/' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</a>';
       }).join("") + '</aside><div class="admin-main">' + main + '</div></div>';
+    if (tab === "reports") loadReports();
   }
 
   function rawUnit(id) {
@@ -1567,6 +1625,19 @@
     }
     if (action === "mstart") { startMock(); return; }
     if (action === "daily") { startDaily(); return; }
+    if (action === "weak") { startWeak(); return; }
+    if (action === "rep-del" || action === "rep-dismiss") {
+      if (!window.CloudDB || !window.CloudDB.ready) return;
+      var repCall = action === "rep-del"
+        ? window.CloudDB.deleteChat(el.getAttribute("data-msg"))
+        : window.CloudDB.dismissReport(el.getAttribute("data-id"));
+      repCall.then(function (rr) {
+        if (rr.error) { toast(rr.error, true); return; }
+        toast(action === "rep-del" ? "已刪除訊息" : "已忽略檢舉");
+        loadReports();
+      });
+      return;
+    }
     if (action === "retry") { startRetry(); return; }
     if (action === "mpick") {
       if (!mockState || !mockState.picks) return;

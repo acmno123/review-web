@@ -336,6 +336,23 @@
       need();
       return wrap(client.rpc("username_available", { p_name: String(name) }));
     }
+    ,
+
+    listReports: function () {
+      need();
+      return wrap(client.from("reports").select("id,reason,created_at,message_id,reporter").order("created_at", { ascending: false }).limit(100));
+    },
+
+    getMessages: function (ids) {
+      need();
+      if (!ids.length) return Promise.resolve({ data: [], error: null });
+      return wrap(client.from("chat_messages").select("id,body,user_id,created_at").in("id", ids));
+    },
+
+    dismissReport: function (id) {
+      need();
+      return wrap(client.from("reports").delete().eq("id", id));
+    }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列

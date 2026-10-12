@@ -626,3 +626,25 @@ label { color: var(--ink-soft); font-weight: 700; }
   .reg-head h1 { font-size: 1.6rem; }
   .reg-orb { flex-basis: 52px; height: 52px; font-size: 1.4rem; }
 }
+
+/* 排行榜 */
+.person-card { position: relative; }
+.rank { flex: 0 0 auto; min-width: 38px; text-align: center; font-weight: 900; font-size: 1.1rem; color: var(--muted); }
+.person-card.top-1 { border-color: rgba(251,191,36,.6); box-shadow: 0 24px 50px -22px rgba(251,191,36,.55); }
+.person-card.top-2 { border-color: rgba(203,213,225,.55); }
+.person-card.top-3 { border-color: rgba(251,146,60,.55); }
+.score-tag {
+  position: absolute; right: 14px; top: 14px; padding: 4px 11px; border-radius: 999px;
+  font-size: .72rem; font-weight: 900; background: var(--grad); color: #fff;
+}
+
+/* 管理員檢舉列表 */
+.rep-list { display: grid; gap: 14px; }
+.rep-item {
+  display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  padding: 18px 20px; border-radius: 22px; background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.rep-body { flex: 1; min-width: 220px; }
+.rep-meta { color: var(--muted); font-size: .85rem; }
+.rep-text { margin: 6px 0 0; font-size: 1rem; word-break: break-word; }
+.rep-actions { display: flex; gap: 8px; flex-wrap: wrap; }

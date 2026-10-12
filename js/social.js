@@ -50,8 +50,25 @@
   function pct(a, b) { return b ? Math.round(a / b * 100) : 0; }
 
   /* ---------- 社群列表 ---------- */
-  async function community() {
+  var sortKey = "completed";
+  var SORTS = [["completed", "完成單元"], ["streak", "連續學習"], ["correct", "答對題數"], ["best", "模擬考最高分"]];
+  function sortVal(st, key) {
+    if (key === "streak") return st.streak || 0;
+    if (key === "correct") return st.correct || 0;
+    if (key === "best") return st.bestMock || 0;
+    return st.completed || 0;
+  }
+  function unitLabel(key, st) {
+    if (key === "streak") return (st.streak || 0) + " 天";
+    if (key === "correct") return (st.correct || 0) + " 題";
+    if (key === "best") return (st.bestMock || 0) + " 分";
+    return (st.completed || 0) + " 單元";
+  }
+
+  // 排行榜：可依不同指標排序
+  async function community(key) {
     if (!db() || !db().ready) return notReady();
+    if (key) sortKey = key;
     loading();
     var r = await db().listPublicStats();
     if (r.error) return fail(r.error);
@@ -60,25 +77,30 @@
     if (pr.error) return fail(pr.error);
     var byId = {};
     pr.data.forEach(function (p) { byId[p.id] = p; });
-
     var rows = r.data.filter(function (x) { return byId[x.user_id]; }).sort(function (a, b) {
-      return (b.stats.completed || 0) - (a.stats.completed || 0);
+      return sortVal(b.stats, sortKey) - sortVal(a.stats, sortKey);
     });
 
-    var html = '<header class="page-head"><span class="eyebrow">Community</span><h1>社群</h1>' +
-      '<p class="muted">看看大家的學習進度。點進個人檔案可以看到更多細節。</p></header>';
+    var medals = ["🥇", "🥈", "🥉"];
+    var html = '<header class="page-head"><span class="eyebrow">Leaderboard</span><h1>社群排行榜</h1>' +
+      '<p class="muted">依不同指標排序。點進個人檔案可以看到更多細節。</p></header>' +
+      '<div class="chips">' + SORTS.map(function (s) {
+        return '<button class="chip' + (s[0] === sortKey ? ' active' : '') + '" data-action="social-sort" data-key="' + s[0] + '">' + s[1] + '</button>';
+      }).join("") + '</div>';
     if (!rows.length) html += '<section class="panel"><p class="muted">目前還沒有公開的學習紀錄。</p></section>';
     html += '<div class="people-grid">';
-    rows.forEach(function (x) {
+    rows.forEach(function (x, i) {
       var p = byId[x.user_id], st = x.stats || {};
       var total = st.total || 0, done = st.completed || 0;
-      html += '<a class="person-card" href="#/u/' + encodeURIComponent(p.username) + '">' +
+      html += '<a class="person-card' + (i < 3 ? ' top-' + (i + 1) : '') + '" href="#/u/' + encodeURIComponent(p.username) + '">' +
+        '<div class="rank">' + (i < 3 ? medals[i] : '#' + (i + 1)) + '</div>' +
         '<div class="avatar">' + esc(displayName(p).charAt(0).toUpperCase()) + '</div>' +
         '<div class="person-main"><strong>' + esc(displayName(p)) + '</strong>' +
         '<span class="muted small-note">@' + esc(p.username) + '</span>' +
         '<div class="mini-stats"><span>🔥 ' + (st.streak || 0) + ' 天</span><span>✅ ' + done + '/' + total + '</span>' +
         '<span>🏅 ' + (st.achievements || 0) + '</span></div>' +
-        '<div class="tile-bar"><span style="width:' + pct(done, total) + '%"></span></div></div></a>';
+        '<div class="tile-bar"><span style="width:' + pct(done, total) + '%"></span></div></div>' +
+        '<div class="score-tag">' + esc(unitLabel(sortKey, st)) + '</div></a>';
     });
     root().innerHTML = html + '</div>';
   }
@@ -204,6 +226,8 @@
   });
 
   document.addEventListener("click", async function (e) {
+    var sortEl = e.target.closest && e.target.closest('[data-action="social-sort"]');
+    if (sortEl) { community(sortEl.getAttribute("data-key")); return; }
     var rep = e.target.closest && e.target.closest('[data-action="social-report"]');
     if (rep) {
       if (!confirm("確定檢舉這則訊息？管理員會收到通知。")) return;
