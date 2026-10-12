@@ -29,8 +29,6 @@
   var K_THEME = "crs_theme";
   var K_OVR = "crs_overrides";
   var K_HIDDEN = "crs_hidden";
-  // 管理員設定只來自 admin-config.js，hash 為空代表尚未設定
-  var ADMIN = (window.ADMIN_CONFIG && window.ADMIN_CONFIG.hash) ? window.ADMIN_CONFIG : null;
   var REVIEW_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
   var REVIEW_QUESTIONS = 3;
   var MAX_WRONG = 200;
@@ -185,7 +183,7 @@
     var u = currentUser();
     if (!u) return false;
     var cloudAdmin = load("crs_cloud_role", "") === "admin";
-    return !!((ADMIN && u === ADMIN.username) || cloudAdmin);
+    return cloudAdmin;
   }
   // 雲端同步後重新載入內容（管理員可能在別處修改過）
   function reloadContent() {
@@ -1427,7 +1425,7 @@
         if (password.length < 6) { msg.textContent = "密碼至少需要 6 個字元"; return; }
         if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) { msg.textContent = "帳號需為 3–20 個英數字或底線"; return; }
         var lowerTaken = Object.keys(users).some(function (k) { return k.toLowerCase() === username.toLowerCase(); });
-        if (lowerTaken || (ADMIN && username.toLowerCase() === ADMIN.username.toLowerCase())) { msg.textContent = "此帳號已被使用"; return; }
+        if (lowerTaken) { msg.textContent = "此帳號已被使用"; return; }
         var nick = (form.nickname ? form.nickname.value : "").trim();
         users[username] = Object.assign({ role: "user", createdAt: Date.now(), disabled: false, nickname: nick }, await makeCredential(password));
         setUsers(users);
@@ -1436,16 +1434,6 @@
         return;
       }
       /* 登入 */
-      if (ADMIN && username === ADMIN.username) {
-        var adminHash = await hashPassword(password, ADMIN.salt);
-        if (adminHash !== ADMIN.hash) { msg.textContent = "帳號或密碼錯誤"; return; }
-        save(K_SESSION, username);
-        practice = null; reviewState = null; mockState = null;
-        toast("歡迎回來，管理員");
-        location.hash = "#/admin";
-        return;
-      }
-      if (!ADMIN) { msg.textContent = "尚未設定管理員，請先依 tools/make-admin.html 產生設定"; return; }
       var record = users[username];
       if (!record) { msg.textContent = "帳號或密碼錯誤"; return; }
       if (record.disabled) { msg.textContent = "此帳號已被停用，請聯絡管理員"; return; }
