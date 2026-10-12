@@ -52,14 +52,26 @@
     }
   };
 
+  // 讀取雲端資料，與本機合併後寫回本機（不會直接覆蓋另一台裝置的進度）
+  async function mergeWithCloud(username) {
+    var local = get(K_DATA + username, null);
+    var st = await window.CloudDB.loadUserState();
+    if (st.error) { warn("讀取雲端資料", st); return local; }
+    if (!local && !st.data) return null;
+    var merged = window.DataMerge ? window.DataMerge.merge(local || {}, st.data || {}) : (st.data || local);
+    put(K_DATA + username, merged);
+    return merged;
+  }
+
   function flushUser() {
     if (!cloudName) return;
-    var data = get(K_DATA + cloudName, null);
-    if (!data) return;
-    window.CloudDB.saveUserState(data).then(function (r) { warn("儲存學習紀錄", r); });
-    if (window.computePublicStats) {
-      window.CloudDB.savePublicStats(window.computePublicStats(data)).then(function (r) { warn("儲存公開摘要", r); });
-    }
+    mergeWithCloud(cloudName).then(function (merged) {
+      if (!merged) return;
+      window.CloudDB.saveUserState(merged).then(function (r) { warn("儲存學習紀錄", r); });
+      if (window.computePublicStats) {
+        window.CloudDB.savePublicStats(window.computePublicStats(merged)).then(function (r) { warn("儲存公開摘要", r); });
+      }
+    });
   }
 
   // 管理員內容：整表取代（非管理員的寫入會被資料庫權限拒絕，屬正常情況）
@@ -87,12 +99,7 @@
   }
 
   async function pullUserState(username) {
-    var st = await window.CloudDB.loadUserState();
-    if (!st.error && st.data) put(K_DATA + username, st.data);
-    else if (!st.error && get(K_DATA + username, null)) {
-      // 雲端尚無資料：把這台裝置上的資料上傳，避免遺失
-      window.CloudDB.saveUserState(get(K_DATA + username, {})).then(function (r) { warn("首次上傳", r); });
-    }
+    await mergeWithCloud(username);
   }
 
   function clearSession() {

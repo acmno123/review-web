@@ -83,3 +83,9 @@ supabase functions deploy admin-users
 
 ## 第七步：管理員處理檢舉
 到 SQL Editor 執行 `supabase/06-admin-reports.sql`。之後管理後台出現「檢舉」頁籤，可以刪除違規訊息或忽略檢舉。
+
+## 第八步：好友與私訊
+到 SQL Editor 執行 `supabase/07-friends-dm.sql`。之後導覽列出現「好友」：
+- 輸入對方帳號送出好友邀請，對方接受後才能互傳私訊。
+- 私訊每 4 秒自動更新，會顯示已讀狀態與未讀數量。
+- 只有雙方是好友時，資料庫才會允許傳送私訊。

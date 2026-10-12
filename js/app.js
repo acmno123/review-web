@@ -286,7 +286,7 @@
   function computeStats(data) {
     var st = {
       completed: 0, reviews: 0, correct: 0, streak: currentStreak(data),
-      mocks: data.mocks.length, bestMock: data.bestMock, bySubject: {}, totalBySubject: {}
+      mocks: data.mocks.length, bestMock: data.bestMock, daily: data.dailyCount || 0, xp: data.xp || 0, bySubject: {}, totalBySubject: {}
     };
     SUBJECTS.forEach(function (s) {
       st.bySubject[s.id] = 0;
@@ -312,7 +312,11 @@
     { id: "streak_3", name: "持之以恆", desc: "連續學習 3 天", test: function (s) { return s.streak >= 3; } },
     { id: "streak_7", name: "七天挑戰", desc: "連續學習 7 天", test: function (s) { return s.streak >= 7; } },
     { id: "mock_1", name: "模擬考初體驗", desc: "完成 1 次模擬考", test: function (s) { return s.mocks >= 1; } },
-    { id: "mock_90", name: "考場高手", desc: "模擬考拿到 90 分以上", test: function (s) { return s.bestMock >= 90; } }
+    { id: "mock_90", name: "考場高手", desc: "模擬考拿到 90 分以上", test: function (s) { return s.bestMock >= 90; } },
+    { id: "daily_3", name: "挑戰新星", desc: "完成 3 次每日挑戰", test: function (s) { return s.daily >= 3; } },
+    { id: "daily_10", name: "挑戰達人", desc: "完成 10 次每日挑戰", test: function (s) { return s.daily >= 10; } },
+    { id: "xp_300", name: "經驗累積", desc: "累積 300 點經驗值", test: function (s) { return s.xp >= 300; } },
+    { id: "xp_1000", name: "傳說學霸", desc: "累積 1000 點經驗值", test: function (s) { return s.xp >= 1000; } }
   ];
   SUBJECTS.forEach(function (s) {
     ACHIEVEMENTS.push({
@@ -380,7 +384,7 @@
     var user = currentUser(), theme = load(K_THEME, "dark");
     var html = '<a href="#/review">複習</a><a href="#/map">知識星圖</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a><a href="#/people">社群</a><a href="#/chat">聊天室</a>';
     if (user) {
-      html += '<a href="#/dashboard">我的學習</a><a href="#/u/' + encodeURIComponent(user) + '">個人檔案</a>';
+      html += '<a href="#/dashboard">我的學習</a><a href="#/friends">好友</a><a href="#/u/' + encodeURIComponent(user) + '">個人檔案</a>';
       if (isAdmin()) html += '<a href="#/admin">管理後台</a>';
       html += '<span class="user">👋 ' + esc(displayName(user)) + '</span><button class="linklike" data-action="logout">登出</button>';
     } else {
@@ -1099,7 +1103,16 @@
         }
       });
       if (mockState.scope !== "錯題重練" && mockState.scope !== "弱點練習") data.mocks.push({ date: Date.now(), score: pct, scope: mockState.scope });
-      if (mockState.scope === "每日挑戰") data.dailyDay = today();
+      if (mockState.scope === "每日挑戰") {
+        // 每日挑戰獎勵：基本 20 點，依成績加 0–20 點
+        var gain = 20 + Math.round(pct / 5);
+        var levelBefore = Math.floor((data.xp || 0) / 100) + 1;
+        data.xp = (data.xp || 0) + gain;
+        data.dailyCount = (data.dailyCount || 0) + 1;
+        data.dailyDay = today();
+        var levelAfter = Math.floor(data.xp / 100) + 1;
+        toast("🌟 每日挑戰完成！+" + gain + " XP" + (levelAfter > levelBefore ? "，升到 Lv." + levelAfter + "！" : ""));
+      }
       if (data.mocks.length > MAX_MOCK_HISTORY) data.mocks = data.mocks.slice(-MAX_MOCK_HISTORY);
       data.bestMock = Math.max(data.bestMock, pct);
       touchStreak(data);
@@ -1484,6 +1497,8 @@
     if (path[0] === "wrong") return viewWrong();
     if (path[0] === "map") return window.MapPage ? window.MapPage.render() : notFound();
     if (path[0] === "people") return window.Social ? window.Social.community() : notFound();
+    if (path[0] === "friends") return window.Social ? window.Social.friends() : notFound();
+    if (path[0] === "dm") return window.Social ? window.Social.dm(decodeURIComponent(path[1] || "")) : notFound();
     if (path[0] === "u") return window.Social ? window.Social.profile(decodeURIComponent(path[1] || "")) : notFound();
     if (path[0] === "chat") return window.Social ? window.Social.chat() : notFound();
     if (path[0] === "lang") return viewLang(path[1] === "ja" ? "ja" : "en");

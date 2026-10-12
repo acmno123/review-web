@@ -250,5 +250,150 @@
     kit().toast(e.target.checked ? "已公開學習狀況" : "已設為不公開");
   });
 
-  window.Social = { community: community, profile: profile, chat: chat };
+  /* ---------- 好友 ---------- */
+  function friendErr(msg) {
+    var m = String(msg || "");
+    if (/duplicate key|already exists/i.test(m)) return "已經送出過邀請，或你們已經是好友";
+    if (/row-level security/i.test(m)) return "沒有權限執行這個操作";
+    return m;
+  }
+
+  async function friends() {
+    if (!db() || !db().ready) return notReady();
+    var me = await db().currentUserId();
+    if (!me) return needLogin();
+    loading();
+    var f = await db().listFriendships();
+    if (f.error) return fail(f.error);
+    var rows = f.data || [];
+    var otherOf = function (x) { return x.requester === me ? x.addressee : x.requester; };
+    var pr = await db().getPublicProfilesByIds(rows.map(otherOf));
+    var byId = {};
+    (pr.data || []).forEach(function (p) { byId[p.id] = p; });
+    var un = await db().unreadSenders();
+    var unread = {};
+    (un.data || []).forEach(function (x) { unread[x.sender] = (unread[x.sender] || 0) + 1; });
+
+    var incoming = rows.filter(function (x) { return x.status === "pending" && x.addressee === me; });
+    var outgoing = rows.filter(function (x) { return x.status === "pending" && x.requester === me; });
+    var accepted = rows.filter(function (x) { return x.status === "accepted"; });
+
+    var name = function (id) { return byId[id] ? displayName(byId[id]) : "（未知）"; };
+    var html = '<header class="page-head"><span class="eyebrow">Friends</span><h1>好友</h1>' +
+      '<p class="muted">邀請朋友加入，就能一對一私訊、一起看進度。</p></header>' +
+      '<section class="card-block"><h2>➕ 加好友</h2>' +
+      '<form class="friend-add" data-form="social-add"><input type="text" name="username" placeholder="輸入對方的帳號" maxlength="20" autocomplete="off">' +
+      '<button class="btn btn-primary" type="submit">送出邀請</button></form></section>';
+
+    if (incoming.length) {
+      html += '<section class="card-block"><h2>📩 收到的邀請（' + incoming.length + '）</h2>' + incoming.map(function (x) {
+        return '<div class="friend-row"><div class="avatar sm">' + esc(name(x.requester).charAt(0).toUpperCase()) + '</div>' +
+          '<strong>' + esc(name(x.requester)) + '</strong><div class="friend-actions">' +
+          '<button class="btn btn-sm btn-primary" data-action="social-accept" data-id="' + x.requester + '">接受</button>' +
+          '<button class="btn btn-sm btn-ghost" data-action="social-remove" data-id="' + x.requester + '">拒絕</button></div></div>';
+      }).join("") + '</section>';
+    }
+    if (outgoing.length) {
+      html += '<section class="card-block"><h2>📤 等待對方回覆（' + outgoing.length + '）</h2>' + outgoing.map(function (x) {
+        return '<div class="friend-row"><div class="avatar sm">' + esc(name(x.addressee).charAt(0).toUpperCase()) + '</div>' +
+          '<strong>' + esc(name(x.addressee)) + '</strong><div class="friend-actions">' +
+          '<button class="btn btn-sm btn-ghost" data-action="social-remove" data-id="' + x.addressee + '">取消邀請</button></div></div>';
+      }).join("") + '</section>';
+    }
+    html += '<section class="card-block"><h2>👫 我的好友（' + accepted.length + '）</h2>';
+    if (!accepted.length) html += '<p class="muted">還沒有好友，輸入帳號送出邀請吧。</p>';
+    accepted.forEach(function (x) {
+      var other = otherOf(x), n = unread[other] || 0;
+      html += '<div class="friend-row"><div class="avatar sm">' + esc(name(other).charAt(0).toUpperCase()) + '</div>' +
+        '<div><strong>' + esc(name(other)) + '</strong>' + (n ? ' <span class="unread-pill">' + n + ' 則新訊息</span>' : '') + '</div>' +
+        '<div class="friend-actions"><a class="btn btn-sm btn-primary" href="#/dm/' + other + '">私訊</a>' +
+        '<a class="btn btn-sm btn-ghost" href="#/u/' + encodeURIComponent(byId[other] ? byId[other].username : "") + '">檔案</a>' +
+        '<button class="btn btn-sm btn-danger" data-action="social-remove" data-id="' + other + '">解除</button></div></div>';
+    });
+    root().innerHTML = html + '</section>';
+  }
+
+  /* ---------- 私訊 ---------- */
+  var dmTimer = null;
+  function dmBubble(m, me) {
+    var mine = m.sender === me;
+    var time = new Date(m.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+    return '<div class="bubble-row' + (mine ? ' mine' : '') + '"><div class="bubble"><div class="bubble-text">' + esc(m.body) +
+      '</div><div class="bubble-meta">' + time + (mine && m.read_at ? ' ・ 已讀' : '') + '</div></div></div>';
+  }
+  async function refreshDM(me, otherId) {
+    var list = document.getElementById("dm-list");
+    if (!list) return;
+    var r = await db().fetchDM(otherId);
+    if (r.error) { list.innerHTML = '<p class="ng">' + esc(friendErr(r.error)) + '</p>'; return; }
+    await db().markDMRead(otherId);
+    var msgs = r.data.slice().reverse();
+    list.innerHTML = msgs.length ? msgs.map(function (m) { return dmBubble(m, me); }).join("") :
+      '<p class="muted">還沒有私訊，打聲招呼吧 👋</p>';
+    list.scrollTop = list.scrollHeight;
+  }
+  async function dm(otherId) {
+    if (!db() || !db().ready) return notReady();
+    var me = await db().currentUserId();
+    if (!me) return needLogin();
+    var pr = await db().getPublicProfilesByIds([otherId]);
+    var p = pr.data && pr.data[0];
+    if (!p) return fail("找不到這位使用者，或你們還不是好友");
+    root().innerHTML = '<header class="page-head"><span class="eyebrow">Direct message</span>' +
+      '<h1>與 ' + esc(displayName(p)) + ' 的私訊</h1><p class="muted"><a href="#/friends">← 返回好友</a></p></header>' +
+      '<section class="chat-box"><div id="dm-list" class="chat-list"><p class="muted">載入中…</p></div>' +
+      '<form class="chat-form" data-form="social-dm" data-to="' + p.id + '">' +
+      '<input type="text" name="body" maxlength="500" placeholder="輸入訊息…" autocomplete="off"><button class="btn btn-primary" type="submit">送出</button></form></section>';
+    await refreshDM(me, otherId);
+    clearInterval(dmTimer);
+    dmTimer = setInterval(function () {
+      if ((location.hash || "").indexOf("#/dm/") !== 0) { clearInterval(dmTimer); return; }
+      refreshDM(me, otherId);
+    }, 4000);
+  }
+
+  // 好友與私訊的表單與按鈕
+  document.addEventListener("submit", async function (e) {
+    var form = e.target.closest && e.target.closest('[data-form="social-add"], [data-form="social-dm"]');
+    if (!form) return;
+    e.preventDefault();
+    if (!db() || !db().ready) return;
+    if (form.getAttribute("data-form") === "social-add") {
+      var uname = form.username.value.trim();
+      if (!uname) return;
+      var p = await db().getPublicProfile(uname);
+      if (p.error) return kit().toast(p.error, true);
+      if (!p.data) return kit().toast("找不到這個帳號", true);
+      var me1 = await db().currentUserId();
+      if (p.data.id === me1) return kit().toast("不能加自己為好友", true);
+      var r = await db().sendFriendRequest(p.data.id);
+      if (r.error) return kit().toast(friendErr(r.error), true);
+      kit().toast("已送出好友邀請");
+      form.username.value = "";
+      friends();
+      return;
+    }
+    var body = form.body.value.trim();
+    if (!body) return;
+    var to = form.getAttribute("data-to");
+    var rr = await db().sendDM(to, body);
+    if (rr.error) return kit().toast(friendErr(rr.error), true);
+    form.body.value = "";
+    var me2 = await db().currentUserId();
+    refreshDM(me2, to);
+  });
+
+  document.addEventListener("click", async function (e) {
+    var el = e.target.closest && e.target.closest('[data-action="social-accept"], [data-action="social-remove"]');
+    if (!el || !db() || !db().ready) return;
+    var id = el.getAttribute("data-id");
+    var r = el.getAttribute("data-action") === "social-accept"
+      ? await db().acceptFriend(id)
+      : await db().removeFriendship(id);
+    if (r.error) return kit().toast(friendErr(r.error), true);
+    kit().toast(el.getAttribute("data-action") === "social-accept" ? "已成為好友 🎉" : "已更新好友關係");
+    friends();
+  });
+
+  window.Social = { community: community, profile: profile, chat: chat, friends: friends, dm: dm };
 })();

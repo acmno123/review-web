@@ -353,6 +353,68 @@
       need();
       return wrap(client.from("reports").delete().eq("id", id));
     }
+    ,
+
+    /* ---------- 好友 ---------- */
+    sendFriendRequest: async function (targetId) {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: null, error: "請先登入" };
+      return wrap(client.from("friendships").insert({ requester: me, addressee: targetId, status: "pending" }));
+    },
+
+    // RLS 只會回傳與自己有關的好友關係
+    listFriendships: function () {
+      need();
+      return wrap(client.from("friendships").select("requester,addressee,status"));
+    },
+
+    acceptFriend: async function (requesterId) {
+      need();
+      var me = await currentUserId();
+      return wrap(client.from("friendships").update({ status: "accepted" }).eq("requester", requesterId).eq("addressee", me));
+    },
+
+    removeFriendship: async function (otherId) {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: null, error: "請先登入" };
+      return wrap(client.from("friendships").delete().or(
+        "and(requester.eq." + me + ",addressee.eq." + otherId + "),and(requester.eq." + otherId + ",addressee.eq." + me + ")"));
+    },
+
+    /* ---------- 私訊 ---------- */
+    fetchDM: async function (otherId) {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: [], error: "請先登入" };
+      return wrap(client.from("direct_messages").select("id,sender,recipient,body,created_at,read_at")
+        .or("and(sender.eq." + me + ",recipient.eq." + otherId + "),and(sender.eq." + otherId + ",recipient.eq." + me + ")")
+        .order("created_at", { ascending: false }).limit(80));
+    },
+
+    sendDM: async function (otherId, body) {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: null, error: "請先登入" };
+      return wrap(client.from("direct_messages").insert({ sender: me, recipient: otherId, body: body }));
+    },
+
+    markDMRead: async function (otherId) {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: null, error: null };
+      return wrap(client.from("direct_messages").update({ read_at: new Date().toISOString() })
+        .eq("sender", otherId).eq("recipient", me).is("read_at", null));
+    },
+
+    // 尚未讀取的私訊，依寄件人統計數量
+    unreadSenders: async function () {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: [], error: null };
+      return wrap(client.from("direct_messages").select("sender").eq("recipient", me).is("read_at", null));
+    }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列
