@@ -1,0 +1,123 @@
+/* =====================================================================
+ * 進階視覺：星空、光暈、聚光、水波紋、切換動畫（放在 theme.css 之後載入）
+ * 只改外觀，不改版面與功能。
+ * ===================================================================== */
+
+/* ---------- 背景層 ---------- */
+#bgfx {
+  position: fixed; left: 0; top: 0; z-index: -3; pointer-events: none;
+}
+#cursor-glow {
+  position: fixed; left: 0; top: 0; width: 400px; height: 400px; border-radius: 50%; z-index: -1;
+  pointer-events: none; mix-blend-mode: screen; opacity: .55;
+  background: radial-gradient(closest-side, rgba(192,132,252,.35), rgba(94,231,255,.12) 45%, transparent 70%);
+  will-change: transform;
+}
+[data-theme="light"] #cursor-glow { mix-blend-mode: multiply; opacity: .35; }
+[data-theme="light"] #bgfx { opacity: .45; }
+
+/* 整頁淡淡的網格與噪點，增加層次 */
+body::after {
+  opacity: .9 !important;
+}
+
+/* ---------- 頂欄：流光漸層邊框 ---------- */
+.topbar {
+  position: sticky;
+  isolation: isolate;
+}
+.topbar::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; z-index: -1; padding: 1px;
+  background: linear-gradient(90deg, #7c8cff, #c084fc, #ff6fb5, #5ee7ff, #7c8cff);
+  background-size: 300% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: flow 8s linear infinite; opacity: .55;
+}
+@keyframes flow { to { background-position: 300% 0; } }
+.brand { position: relative; }
+.brand::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px; border-radius: 2px;
+  background: var(--grad); transform: scaleX(0); transform-origin: left; transition: transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.brand:hover::after { transform: scaleX(1); }
+
+/* ---------- 首頁標題：霓虹光暈 ---------- */
+.hero h1 {
+  text-shadow: 0 0 40px rgba(192,132,252,.35);
+}
+.hero::before {
+  animation-duration: 10s !important;
+  opacity: .75 !important;
+}
+.hero p {
+  animation: fadeUp .9s .15s cubic-bezier(.2,.8,.2,1) both;
+}
+.hero .hero-actions {
+  animation: fadeUp .9s .3s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ---------- 卡片聚光：滑鼠位置會亮起一小片光 ---------- */
+.tile, .panel, .card-block, .person-card, .stat, .opt, .q-card {
+  background-image: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.10), transparent 60%);
+  background-repeat: no-repeat;
+}
+[data-theme="light"] .tile, [data-theme="light"] .panel, [data-theme="light"] .card-block,
+[data-theme="light"] .person-card, [data-theme="light"] .stat, [data-theme="light"] .opt, [data-theme="light"] .q-card {
+  background-image: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(139,155,255,.16), transparent 60%);
+}
+.tile { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .45s, background-color .3s; transform-style: preserve-3d; }
+.tile .tile-icon { transform: translateZ(30px); }
+.tile .tile-name { transform: translateZ(18px); display: block; }
+
+/* ---------- 按鈕水波紋 ---------- */
+.ripple {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,255,255,.55), rgba(255,255,255,0));
+  transform: scale(0); opacity: .9; animation: ripple .65s ease-out forwards;
+}
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+
+/* ---------- 頁面切換 ---------- */
+#app.route-in { animation: routeIn .55s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes routeIn {
+  from { opacity: 0; transform: translateY(16px) scale(.993); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* ---------- 捲動淡入（只在 JS 啟用時生效） ---------- */
+.js-ui .reveal:not(.in) { opacity: 0; transform: translateY(24px); }
+.js-ui .reveal.in { opacity: 1; transform: none; transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
+
+/* ---------- 進度條條紋流動 ---------- */
+.bar-fill {
+  background-image:
+    linear-gradient(135deg, rgba(255,255,255,.22) 25%, transparent 25%, transparent 50%,
+      rgba(255,255,255,.22) 50%, rgba(255,255,255,.22) 75%, transparent 75%, transparent);
+  background-size: 22px 22px;
+  animation: stripes 1.2s linear infinite, shimmer 3s linear infinite;
+}
+@keyframes stripes { to { background-position: 22px 0; } }
+
+/* ---------- 標題文字：霓虹掃光 ---------- */
+.page-head h1 {
+  background-size: 200% 100%;
+  animation: sheen 7s ease-in-out infinite;
+}
+
+/* ---------- 選項與按鈕的微互動 ---------- */
+.opt { transform-style: preserve-3d; }
+.opt:hover:not(:disabled) .opt-k { box-shadow: 0 0 0 4px rgba(192,132,252,.25), 0 10px 26px -8px rgba(192,132,252,.9); }
+.btn-primary:active:not(:disabled) { transform: scale(.96); }
+
+/* ---------- 手機與減少動態效果 ---------- */
+@media (max-width: 640px) {
+  #cursor-glow { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bgfx, #cursor-glow, .topbar::before, .brand::after, .hero p, .hero .hero-actions,
+  #app.route-in, .js-ui .reveal, .bar-fill, .page-head h1, .ripple { animation: none !important; transition: none !important; }
+  .js-ui .reveal:not(.in) { opacity: 1; transform: none; }
+  .tile .tile-icon, .tile .tile-name { transform: none; }
+}
