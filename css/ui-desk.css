@@ -1,0 +1,109 @@
+/* =====================================================================
+ * 工作桌面、多視窗、動態評量、嵌入模式
+ * ===================================================================== */
+
+/* 動態評量提示 */
+.adapt-badge {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 9px 16px; border-radius: 999px;
+  font-size: .86rem; font-weight: 800; color: #fff; background: linear-gradient(120deg, #22d3ee, #6366f1, #d946ef);
+  background-size: 200% 100%; animation: flow 4s linear infinite, rise .5s cubic-bezier(.2,.8,.2,1) both;
+  box-shadow: 0 12px 28px -12px rgba(99,102,241,.8);
+}
+
+/* ---------- 工作桌面 ---------- */
+.desk {
+  position: relative; height: calc(100vh - 130px); min-height: 560px; border-radius: 30px; overflow: hidden;
+  background:
+    radial-gradient(900px 500px at 15% 10%, rgba(124,140,255,.25), transparent 60%),
+    radial-gradient(700px 480px at 90% 90%, rgba(255,111,181,.18), transparent 60%),
+    linear-gradient(160deg, rgba(20,27,60,.9), rgba(8,12,30,.95));
+  border: 1px solid var(--line-strong); box-shadow: var(--shadow);
+}
+[data-theme="light"] .desk {
+  background:
+    radial-gradient(900px 500px at 15% 10%, rgba(124,140,255,.25), transparent 60%),
+    linear-gradient(160deg, #f6f7ff, #e8ecff);
+}
+.desk-icons {
+  position: absolute; left: 14px; top: 14px; bottom: 70px; z-index: 2; width: 110px;
+  display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+}
+.desk-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 16px;
+  border: 1px solid transparent; background: transparent; color: var(--ink); cursor: pointer; font: inherit;
+  transition: background .2s, transform .2s, border-color .2s;
+}
+.desk-icon:hover { background: rgba(139,155,255,.16); border-color: var(--line-strong); transform: translateY(-2px); }
+.di-ico { font-size: 1.8rem; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 18px;
+  background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.di-txt { font-size: .78rem; font-weight: 700; text-align: center; line-height: 1.3; }
+.desk-area { position: absolute; left: 130px; right: 0; top: 0; bottom: 56px; overflow: hidden; }
+.desk-area.is-busy iframe { pointer-events: none; }
+.desk-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); color: var(--muted);
+  font-weight: 700; text-align: center; pointer-events: none; max-width: 80%;
+}
+
+/* 視窗 */
+.win {
+  position: absolute; display: flex; flex-direction: column; min-width: 300px; min-height: 220px;
+  border-radius: 20px; overflow: hidden; background: var(--glass-strong);
+  border: 1px solid var(--line-strong); box-shadow: 0 30px 70px -28px rgba(0,0,0,.7);
+  backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  transition: box-shadow .25s, opacity .25s, transform .25s;
+}
+.win.active { box-shadow: 0 36px 80px -28px rgba(124,140,255,.55), 0 0 0 1px rgba(139,155,255,.4); }
+.win.min { display: none; }
+.win.max { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0; }
+.win-bar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: grab; user-select: none;
+  background: linear-gradient(120deg, rgba(124,140,255,.22), rgba(255,111,181,.14)); border-bottom: 1px solid var(--line);
+}
+.win-bar:active { cursor: grabbing; }
+.win-dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(120deg, #7c8cff, #ff6fb5); box-shadow: 0 0 10px #c084fc; }
+.win-title { flex: 1; min-width: 0; font-size: .9rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.win-ctrl { display: flex; gap: 6px; }
+.win-ctrl button {
+  width: 28px; height: 26px; border-radius: 9px; border: 1px solid var(--line); background: var(--glass);
+  color: var(--ink); cursor: pointer; font: inherit; font-size: .8rem; font-weight: 800; transition: .2s;
+}
+.win-ctrl button:hover { background: rgba(139,155,255,.25); }
+.win-ctrl button[data-w="close"]:hover { background: rgba(251,113,133,.35); color: #fff; }
+.win iframe { flex: 1; width: 100%; border: 0; background: transparent; }
+.win-grip {
+  position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--brand) 50%); opacity: .6; border-bottom-right-radius: 20px;
+}
+.win.max .win-grip { display: none; }
+
+/* 工作列 */
+.taskbar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 56px; z-index: 50; display: flex; align-items: center; gap: 8px;
+  padding: 0 14px; overflow-x: auto; background: var(--glass-strong); border-top: 1px solid var(--line-strong);
+  backdrop-filter: blur(20px);
+}
+.tb-item {
+  flex: 0 0 auto; max-width: 180px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--glass); color: var(--ink); cursor: pointer; font: inherit; font-size: .85rem; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: .2s;
+}
+.tb-item.on { background: var(--grad); color: #fff; border-color: transparent; box-shadow: 0 8px 20px -8px rgba(192,132,252,.9); }
+.tb-empty { color: var(--muted); font-weight: 700; font-size: .85rem; }
+
+/* 手機：桌面改為單欄，視窗佔滿 */
+@media (max-width: 760px) {
+  .desk { height: calc(100vh - 110px); min-height: 480px; }
+  .desk-icons { width: auto; right: 10px; left: 10px; top: 10px; bottom: auto; flex-direction: row; flex-wrap: wrap; justify-content: center; overflow: visible; }
+  .desk-icon { width: 76px; }
+  .desk-area { left: 0; top: 0; }
+  .desk-hint { display: none; }
+  .win { min-width: 0; }
+  .win:not(.max) { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; }
+  .win-grip { display: none; }
+}
+
+/* ---------- 嵌入模式（視窗內的頁面）：隱藏外層導覽與背景 ---------- */
+.embed .topbar, .embed .footer, .embed .drawer, .embed #bgfx, .embed #cursor-glow, .embed .toasts { display: none !important; }
+.embed body::before, .embed body::after { display: none !important; }
+.embed body { background: var(--bg); min-height: 0; }
+.embed .container { margin: 0 auto; padding: 14px 16px 24px; max-width: none; }

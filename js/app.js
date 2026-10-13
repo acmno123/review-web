@@ -41,6 +41,8 @@
 
   /* 記憶體中的狀態 */
   var practice = null, practiceLevel = 0, reviewState = null;
+  var adaptLevel = 1, adaptStreak = 0; // 動態評量：目前難度與連續答對數
+  function effLevel() { return practiceLevel === "auto" ? adaptLevel : practiceLevel; }
   var mockCfg = { grade: "all", subject: "all", lang: "all", qlang: "zh", count: 10, level: 0 };
   var qLang = "zh"; // 單元練習的題目語言：zh 中文 / ja 日文版
   var mockState = null;
@@ -428,7 +430,7 @@
   function pickNew(unit, lastQ, seen) {
     var item = null;
     for (var i = 0; i < 10; i++) {
-      item = QUIZ.next(unit, lastQ, practiceLevel, qLang);
+      item = QUIZ.next(unit, lastQ, effLevel(), qLang);
       if (item.missing || !seen[item.q]) break;
     }
     seen[item.q] = true;
@@ -537,6 +539,10 @@
     var user = currentUser();
     if (QUIZ.check(val, practice.a)) {
       practice.status = "correct";
+      if (practiceLevel === "auto") {
+        adaptStreak += 1;
+        if (adaptStreak >= 2 && adaptLevel < 4) { adaptLevel += 1; adaptStreak = 0; }
+      }
       if (window.FX) FX.burst(document.querySelector("#practice-box .pq"));
       if (user) {
         var data = getData(user), rec = unitRecord(data, practice.unit.id);
@@ -559,6 +565,7 @@
     }
     practice.status = "wrong";
     combo = 0;
+    if (practiceLevel === "auto") { adaptStreak = 0; adaptLevel = Math.max(1, adaptLevel - 1); }
     if (answerMode === "choice" && practice.opts) {
       var idx = practice.opts.indexOf(val);
       practice.badIdx = practice.badIdx || [];
@@ -584,6 +591,7 @@
         return '<button class="chip' + (answerMode === c[0] ? ' active' : '') + '" data-action="amode" data-mode="' + c[0] + '">' + c[1] + '</button>';
       }).join("") + '</div>';
 
+    if (practiceLevel === "auto") html += '<div class="adapt-badge">🧭 動態評量・目前難度：' + LV_NAME[adaptLevel] + '（連續答對 2 題升級，答錯降級）</div>';
     html += '<div class="q-stage"><p class="pq">' + lvBadge(practice.lv) + esc(practice.q) + '</p></div>';
     if (st === "revealed") html += '<p class="answer fx-in">答案：' + esc(practice.a.split("|")[0]) + '</p>';
 
@@ -618,15 +626,26 @@
     if (inp && !inp.disabled) inp.focus();
   }
 
+  // 複習題目依難度遞進：第 1 題基礎、第 2 題進階、第 3 題困難，題目彼此不重複
   function makeReviewItems(u) {
-    var items = [], seen = {}, tries = 0;
-    while (items.length < REVIEW_QUESTIONS && tries < 40) {
-      tries++;
-      var it = QUIZ.next(u, null, 0);
-      if (!seen[it.q]) { seen[it.q] = true; items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, exp: it.exp, opts: makeOptions(it.a, u, it.d) }); }
+    var items = [], seen = {};
+    function push(it) {
+      seen[it.q] = true;
+      items.push({ q: it.q, a: it.a, lv: it.lv, ok: false, exp: it.exp, opts: makeOptions(it.a, u, it.d) });
+    }
+    [1, 2, 3].forEach(function (lv) {
+      for (var t = 0; t < 30; t++) {
+        var it = QUIZ.next(u, null, lv);
+        if (!seen[it.q]) { push(it); break; }
+      }
+    });
+    for (var k = 0; items.length < REVIEW_QUESTIONS && k < 40; k++) {
+      var x = QUIZ.next(u, null, 0);
+      if (!seen[x.q]) push(x);
     }
     return items;
   }
+
   function renderReview() {
     var box = document.getElementById("review-box");
     if (!box || !reviewState) return;
@@ -671,7 +690,7 @@
   }
 
   function levelChips() {
-    return '<div class="chips">' + [[0, "混合"], [1, "基礎"], [2, "進階"], [3, "困難"], [4, "魔王"]].map(function (c) {
+    return '<div class="chips">' + [[0, "混合"], [1, "基礎"], [2, "進階"], [3, "困難"], [4, "魔王"], ["auto", "🧭 動態評量"]].map(function (c) {
       return '<button class="chip' + (practiceLevel === c[0] ? ' active' : '') + '" data-action="level" data-lv="' + c[0] + '">' + c[1] + '</button>';
     }).join("") + '</div>';
   }
@@ -1517,6 +1536,7 @@
     if (path[0] === "mock") return viewMock();
     if (path[0] === "wrong") return viewWrong();
     if (path[0] === "map") return window.MapPage ? window.MapPage.render() : notFound();
+    if (path[0] === "desk") return window.Desk ? window.Desk.render() : notFound();
     if (path[0] === "people") return window.Social ? window.Social.community() : notFound();
     if (path[0] === "friends") return window.Social ? window.Social.friends() : notFound();
     if (path[0] === "dm") return window.Social ? window.Social.dm(decodeURIComponent(path[1] || "")) : notFound();
@@ -1587,7 +1607,9 @@
       return;
     }
     if (action === "level") {
-      practiceLevel = Number(el.getAttribute("data-lv"));
+      var lvAttr = el.getAttribute("data-lv");
+      practiceLevel = lvAttr === "auto" ? "auto" : Number(lvAttr);
+      if (practiceLevel === "auto") { adaptLevel = 1; adaptStreak = 0; }
       if (practice) practice = newPractice(practice.unit);
       render();
       return;
