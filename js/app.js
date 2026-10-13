@@ -106,6 +106,11 @@
       return (lv >= 1 && lv <= 4) ? [p[0], p[1], lv] : [p[0], p[1]];
     }).filter(Boolean);
   }
+  function hashStr(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+    return h;
+  }
   function buildUnitsRaw() {
     ALL_UNITS = [];
     SUBJECTS.forEach(function (s) {
@@ -120,6 +125,27 @@
             }));
           });
         });
+      });
+    });
+    // 出版社目錄：同科目、同年級、同名稱的單元只保留一份，並記錄所有出版社
+    var normTitle = function (t) { return String(t).toLowerCase().replace(/[\s　\p{P}]/gu, ""); };
+    (window.CATALOG || []).forEach(function (c) {
+      if (!c || !c.title || !c.subject || !c.grade || !findSubject(c.subject)) return;
+      if (!c.points || !c.points.length || !c.bank || c.bank.length < 3) return; // 沒有內容的不加入
+      var key = c.subject + "|" + c.grade + "|" + normTitle(c.title);
+      var dup = ALL_UNITS.filter(function (u) {
+        return u.subjectId === c.subject && u.grade === Number(c.grade) && normTitle(u.title) === normTitle(c.title);
+      })[0];
+      if (dup) {
+        dup.pubs = (dup.pubs || []).concat(c.pub ? [c.pub] : []).filter(function (v, i, a) { return a.indexOf(v) === i; });
+        return;
+      }
+      var id = "cat-" + c.subject + "-" + c.grade + "-" + key.split("|")[2].slice(0, 24) + "-" + Math.abs(hashStr(key)).toString(36);
+      ALL_UNITS.push({
+        id: id, title: c.title, subjectId: c.subject, subjectName: findSubject(c.subject).name,
+        grade: Number(c.grade), semester: c.semester || 0, chapterTitle: c.chapter || "",
+        hook: c.hook || "", fun: c.fun || "", points: c.points, bank: c.bank, gen: [],
+        pubs: c.pub ? [c.pub] : [], custom: false
       });
     });
     CUSTOM.forEach(function (c) {
@@ -158,23 +184,25 @@
     return "https://www.youtube.com/results?search_query=" +
       encodeURIComponent("國中 " + u.subjectName + " " + u.grade + "年級 " + u.title);
   }
+  // 影片區：影片直接在網站內播放（精選目錄 + 管理員加入的影片），不跳轉到 YouTube
   function videosHtml(u) {
-    var list = VIDEOS[u.id] || [];
-    var html = '<section class="panel"><h2>🎬 影片教學</h2>';
-    if (list.length) {
-      html += '<div class="video-grid">' + list.map(function (v) {
-        var id = ytId(v.url);
-        return '<div>' + (id
-          ? '<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/' + id +
-            '" title="' + esc(v.title) + '" loading="lazy" allowfullscreen></iframe></div>'
-          : '') +
-          '<p class="video-cap">' + esc(v.title) + '</p></div>';
-      }).join("") + '</div>';
+    var list = [].concat((window.VIDEO_LIBRARY || {})[u.id] || [], VIDEOS[u.id] || []);
+    var html = '<section class="panel video-panel"><h2>🎬 影片教學</h2>';
+    var cards = list.map(function (v) {
+      var id = ytId(v.url);
+      if (!id) return "";
+      return '<div class="video-card"><div class="video"><iframe src="https://www.youtube-nocookie.com/embed/' + id +
+        '" title="' + esc(v.title) + '" loading="lazy" allowfullscreen></iframe></div>' +
+        '<p class="video-cap">' + esc(v.title) + '</p></div>';
+    }).filter(Boolean).join("");
+    if (cards) {
+      html += '<div class="video-grid">' + cards + '</div>';
+    } else {
+      html += '<div class="video-empty"><span>📺</span><p>這個單元還沒有影片。' +
+        (isAdmin() ? '到「管理後台 → 影片管理」貼上影片網址，就會直接在這裡播放。' : '管理員加入影片後會顯示在這裡，直接在網站播放。') +
+        '</p></div>';
     }
-    html += '<a class="yt-link" href="' + ytSearchUrl(u) + '" target="_blank" rel="noopener">' +
-      '<span class="yt">▶</span><span>在 YouTube 搜尋「' + esc(u.title) + '」的教學影片</span></a>' +
-      '<p class="muted" style="margin:8px 0 0">點擊會開新分頁，搜尋結果由 YouTube 提供。</p></section>';
-    return html;
+    return html + '</section>';
   }
 
   /* ---------- 使用者與管理員 ---------- */

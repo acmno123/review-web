@@ -909,3 +909,21 @@ body.menu-open .menu-btn span:nth-child(3) { transform: translateY(-7.5px) rotat
   animation: badgePop .5s cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* =====================================================================
+ * 影片區：站內直接播放
+ * ===================================================================== */
+.video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.video-card { display: flex; flex-direction: column; gap: 10px; }
+.video-card .video {
+  position: relative; padding-top: 56.25%; border-radius: 20px; overflow: hidden;
+  background: #05070f; border: 1px solid var(--line-strong); box-shadow: 0 24px 50px -22px rgba(124,140,255,.6);
+}
+.video-card .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-cap { margin: 0; font-weight: 800; color: var(--ink); }
+.video-empty {
+  display: flex; align-items: center; gap: 16px; padding: 22px; border-radius: 20px;
+  background: rgba(255,255,255,.04); border: 1px dashed var(--line-strong); color: var(--ink-soft);
+}
+.video-empty span { font-size: 2.2rem; }
+.video-empty p { margin: 0; line-height: 1.7; }
