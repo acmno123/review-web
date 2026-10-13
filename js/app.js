@@ -539,6 +539,7 @@
   function gradeAnswer(val) {
     if (!practice || practice.status === "correct") return;
     practice.picked = val;
+    practice.nextItem = null; // 作答後難度可能改變，下一題重新準備
     var user = currentUser();
     if (QUIZ.check(val, practice.a)) {
       practice.status = "correct";
@@ -625,6 +626,7 @@
 
     if (combo >= 2) html = '<div class="combo fx-in">🔥 連續答對 ' + combo + ' 題</div>' + html;
     box.innerHTML = html;
+    if (!practice.nextItem) practice.nextItem = pickNew(practice.unit, practice.q, practice.seen || {});
     var inp = document.getElementById("practice-input");
     if (inp && !inp.disabled) inp.focus();
   }
@@ -1642,7 +1644,8 @@
     }
     if (action === "next") {
       if (!practice) return;
-      var item = pickNew(practice.unit, practice.q, practice.seen || {});
+      var item = practice.nextItem || pickNew(practice.unit, practice.q, practice.seen || {});
+      practice.nextItem = null;
       practice.q = item.q; practice.a = item.a; practice.lv = item.lv; practice.d = item.d; practice.exp = item.exp; practice.status = ""; delete practice.opts; delete practice.picked; practice.badIdx = []; practice.shownAt = Date.now();
       renderPractice();
       return;
