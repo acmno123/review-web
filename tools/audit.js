@@ -11,11 +11,12 @@ const problems = [];
 
 // 1. index.html 引用的檔案都存在
 [...html.matchAll(/(?:src|href)="([^"#?][^"]*)"/g)].map(m => m[1]).filter(p => !p.startsWith("http")).forEach(p => {
-  if (!fs.existsSync(path.join(root, p))) problems.push("引用檔案不存在: " + p);
+  const file = p.split("?")[0];
+  if (!fs.existsSync(path.join(root, file))) problems.push("引用檔案不存在: " + p);
 });
 
 // 2. 依 index.html 的順序載入內容檔
-const order = [...html.matchAll(/<script src="(js\/[^"]+)"><\/script>/g)].map(m => m[1])
+const order = [...html.matchAll(/<script src="(js\/[^"]+)"><\/script>/g)].map(m => m[1].split("?")[0])
   .filter(f => /content|lessons|lang-gen|quiz|semesters|explain-bank|catalog|video-library/.test(f));
 order.forEach(f => { try { require(path.join(root, f)); } catch (e) { problems.push("載入失敗 " + f + ": " + e.message); } });
 
