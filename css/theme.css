@@ -860,3 +860,22 @@ body.menu-open .menu-btn span:nth-child(3) { transform: translateY(-7.5px) rotat
 .inbox-side small { color: var(--muted); font-weight: 600; }
 .empty-state { text-align: center; padding: 40px 26px; }
 .empty-ico { font-size: 3rem; margin-bottom: 8px; }
+
+/* =====================================================================
+ * 文字顏色：依亮色或暗色主題自動調整（修正固定白字在亮色主題看不清的問題）
+ * ===================================================================== */
+.topbar { color: var(--ink); }
+.hero { color: var(--ink); }
+.hero p { color: var(--ink-soft); }
+.btn-ghost-light { color: var(--ink); background: var(--glass); border-color: var(--line-strong); }
+.btn-ghost-light:hover { background: var(--grad-soft); }
+/* 按鈕在漸層底上的文字保持白色，確保對比 */
+.btn-primary, .topbar .btn-small, .chip.active, .seg-btn.on, .side-link.active,
+.step, .q-no, .opt-k, .avatar, .sem-badge, .combo, .score-tag, .ex-tag, .unread-pill, .admin-badge {
+  color: #fff;
+}
+/* 亮色主題：卡片內的標題與標籤使用深色文字 */
+[data-theme="light"] .card-title,
+[data-theme="light"] .tile-name,
+[data-theme="light"] .stat .lbl,
+[data-theme="light"] .unit-list a { color: var(--ink); }
