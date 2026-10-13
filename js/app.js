@@ -52,7 +52,10 @@
     try { var v = localStorage.getItem(key); return v === null ? def : JSON.parse(v); }
     catch (e) { return def; }
   }
-  function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+  function save(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); }
+    catch (e) { /* 瀏覽器儲存空間不足或隱私模式時，避免程式中斷 */ }
+  }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -719,7 +722,7 @@
 
     var html = '<section class="hero"><div>' +
       '<span class="eyebrow">108 課綱・國一至國三</span>' +
-      '<h1>國中複習站</h1>' +
+      '<h1>' + esc((window.SITE && window.SITE.name) || '國中複習站') + '</h1>' +
       '<p>趣味講解、無限練習、模擬考與錯題本。答錯的題目會自動收進錯題本，' +
       '還能切換日文版題目與魔王級挑戰。</p>' +
       '<div class="hero-actions">' +
@@ -1537,6 +1540,7 @@
     if (path[0] === "wrong") return viewWrong();
     if (path[0] === "map") return window.MapPage ? window.MapPage.render() : notFound();
     if (path[0] === "desk") return window.Desk ? window.Desk.render() : notFound();
+    if (path[0] === "focus") return window.FocusPage ? window.FocusPage.render() : notFound();
     if (path[0] === "people") return window.Social ? window.Social.community() : notFound();
     if (path[0] === "friends") return window.Social ? window.Social.friends() : notFound();
     if (path[0] === "dm") return window.Social ? window.Social.dm(decodeURIComponent(path[1] || "")) : notFound();

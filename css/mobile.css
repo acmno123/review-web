@@ -61,3 +61,32 @@
 
 /* 嵌入模式不顯示底部導覽列 */
 .embed .m-tabbar { display: none !important; }
+
+/* =====================================================================
+ * 相容性：Chrome（電腦、安卓）與 Safari（Mac、iPhone）
+ * ===================================================================== */
+
+/* Safari 需要 -webkit- 前綴的 backdrop-filter；不支援時改用不透明背景 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar, .panel, .card-block, .tile, .drawer-panel, .m-tabbar, .taskbar, .win { background: var(--glass-strong) !important; }
+}
+
+/* Safari 手機的 100vh 包含網址列高度，改用 dvh（支援時） */
+@supports (height: 100dvh) {
+  .desk { height: calc(100dvh - 130px); }
+  @media (max-width: 760px) { .desk { height: calc(100dvh - 190px); } }
+}
+
+/* Firefox 捲軸樣式（Chrome/Safari 使用 ::-webkit-scrollbar） */
+* { scrollbar-width: thin; scrollbar-color: rgba(139,155,255,.55) transparent; }
+
+/* @property 不支援時（較舊的 Safari、Firefox），旋轉光環仍顯示，只是不做漸層流動 */
+@supports not (background: conic-gradient(from 0deg, red, blue)) {
+  .hero::before, .tile::before, .reg-card::before, .drawer-panel::before { display: none; }
+}
+
+/* Safari 不支援 mask-composite 的標準寫法時，使用 -webkit- 版本（已在 theme.css 同時提供） */
+/* 避免 iOS 點擊時的灰色高亮 */
+a, button { -webkit-tap-highlight-color: transparent; }
+/* iOS 不要自動放大輸入框文字 */
+input, select, textarea { font-size: 16px; }

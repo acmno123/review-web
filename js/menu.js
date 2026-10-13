@@ -19,7 +19,8 @@
         ["#/wrong", "📕", "錯題本", "重練答錯的題目"],
         ["#/lang/en", "🔤", "英文題庫", "整批英文練習"],
         ["#/lang/ja", "🇯🇵", "日文題庫", "整批日文練習"],
-        ["#/desk", "🖥️", "工作桌面", "多視窗同時開，可拖拉排列"]
+        ["#/desk", "🖥️", "工作桌面", "多視窗同時開，可拖拉排列"],
+        ["#/focus", "⏱️", "專注計時", "番茄鐘，專注與休息交替"]
       ] },
       { title: "社群", items: [
         ["#/people", "🏆", "排行榜", "看看誰的進度最快"],
@@ -57,7 +58,7 @@
     var theme = (localStorage.getItem("crs_theme") || '"dark"').replace(/"/g, "");
     var head = user
       ? '<div class="drawer-avatar">' + k.esc(user.charAt(0).toUpperCase()) + '</div><div><strong>' + k.esc(user) + '</strong><small>歡迎回來</small></div>'
-      : '<div class="drawer-avatar">📚</div><div><strong>國中複習站</strong><small>登入後可以保存學習紀錄</small></div>';
+      : '<div class="drawer-avatar">' + ((window.SITE && window.SITE.icon) || "📚") + '</div><div><strong>' + k.esc((window.SITE && window.SITE.name) || "國中複習站") + '</strong><small>登入後可以保存學習紀錄</small></div>';
     var body = groups().map(function (g) {
       return '<section class="drawer-group"><h3>' + g.title + '</h3><div class="drawer-grid">' +
         g.items.map(tile).join("") + '</div></section>';
