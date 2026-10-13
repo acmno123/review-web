@@ -380,19 +380,12 @@
   }
 
   /* ---------- 導覽列 ---------- */
+  // 導覽列只保留選單按鈕與主題切換；所有頁面入口都在側邊選單裡
   function renderNav() {
-    var user = currentUser(), theme = load(K_THEME, "dark");
-    var html = '<a href="#/review">複習</a><a href="#/map">知識星圖</a><a href="#/mock">模擬考</a><a href="#/lang/en">英文題庫</a><a href="#/lang/ja">日文題庫</a><a href="#/wrong">錯題本</a><a href="#/people">社群</a><a href="#/chat">聊天室</a>';
-    if (user) {
-      html += '<a href="#/dashboard">我的學習</a><a href="#/friends">好友</a><a href="#/u/' + encodeURIComponent(user) + '">個人檔案</a>';
-      if (isAdmin()) html += '<a href="#/admin">管理後台</a>';
-      html += '<span class="user">👋 ' + esc(displayName(user)) + '</span><button class="linklike" data-action="logout">登出</button>';
-    } else {
-      html += '<a href="#/login">登入</a><a class="btn-small" href="#/register">註冊</a>';
-    }
-
-    html += '<button class="linklike icon-btn" data-action="theme" title="切換主題">' + (theme === "dark" ? "☀️" : "🌙") + '</button>';
-    nav.innerHTML = html;
+    var theme = load(K_THEME, "dark");
+    nav.innerHTML = '<button class="menu-btn" data-action="menu-open" aria-label="開啟選單" title="選單">' +
+      '<span></span><span></span><span></span></button>' +
+      '<button class="linklike icon-btn" data-action="theme" title="切換主題">' + (theme === "dark" ? "☀️" : "🌙") + '</button>';
   }
 
   /* ---------- 講解與練習 ---------- */
@@ -1499,6 +1492,7 @@
     if (path[0] === "people") return window.Social ? window.Social.community() : notFound();
     if (path[0] === "friends") return window.Social ? window.Social.friends() : notFound();
     if (path[0] === "dm") return window.Social ? window.Social.dm(decodeURIComponent(path[1] || "")) : notFound();
+    if (path[0] === "inbox") return window.Social ? window.Social.inbox() : notFound();
     if (path[0] === "u") return window.Social ? window.Social.profile(decodeURIComponent(path[1] || "")) : notFound();
     if (path[0] === "chat") return window.Social ? window.Social.chat() : notFound();
     if (path[0] === "lang") return viewLang(path[1] === "ja" ? "ja" : "en");

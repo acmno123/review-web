@@ -415,6 +415,17 @@
       if (!me) return { data: [], error: null };
       return wrap(client.from("direct_messages").select("sender").eq("recipient", me).is("read_at", null));
     }
+    ,
+
+    // 最近的私訊（與自己有關），用於收件匣
+    recentDM: async function (limit) {
+      need();
+      var me = await currentUserId();
+      if (!me) return { data: [], error: "請先登入" };
+      return wrap(client.from("direct_messages").select("id,sender,recipient,body,created_at,read_at")
+        .or("sender.eq." + me + ",recipient.eq." + me)
+        .order("created_at", { ascending: false }).limit(limit || 300));
+    }
   };
 
   // 新增或更新 rows，再刪除資料庫中不在 rows 裡的列

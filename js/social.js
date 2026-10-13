@@ -395,5 +395,61 @@
     friends();
   });
 
-  window.Social = { community: community, profile: profile, chat: chat, friends: friends, dm: dm };
+  /* ---------- 私訊收件匣 ---------- */
+  async function inbox() {
+    if (!db() || !db().ready) return notReady();
+    var me = await db().currentUserId();
+    if (!me) return needLogin();
+    loading();
+    var r = await db().recentDM(300);
+    if (r.error) return fail(r.error);
+    var f = await db().listFriendships();
+    if (f.error) return fail(f.error);
+
+    var convo = {};
+    (r.data || []).forEach(function (m) {
+      var other = m.sender === me ? m.recipient : m.sender;
+      if (!convo[other]) convo[other] = { last: m, unread: 0 };
+      if (m.recipient === me && !m.read_at) convo[other].unread += 1;
+    });
+    (f.data || []).forEach(function (x) {
+      if (x.status !== "accepted") return;
+      var other = x.requester === me ? x.addressee : x.requester;
+      if (!convo[other]) convo[other] = { last: null, unread: 0 };
+    });
+    var ids = Object.keys(convo);
+    var pr = await db().getPublicProfilesByIds(ids);
+    var byId = {};
+    (pr.data || []).forEach(function (p) { byId[p.id] = p; });
+
+    var list = ids.map(function (id) { return { id: id, c: convo[id] }; }).sort(function (a, b) {
+      if (!!b.c.unread !== !!a.c.unread) return b.c.unread ? 1 : -1;
+      var ta = a.c.last ? Date.parse(a.c.last.created_at) : 0, tb = b.c.last ? Date.parse(b.c.last.created_at) : 0;
+      return tb - ta;
+    });
+    var totalUnread = list.reduce(function (n, x) { return n + x.c.unread; }, 0);
+
+    var html = '<header class="page-head"><span class="eyebrow">Inbox</span><h1>私訊' +
+      (totalUnread ? ' <span class="unread-pill big">' + totalUnread + ' 則未讀</span>' : '') + '</h1>' +
+      '<p class="muted">只能和好友私訊。<a href="#/friends">管理好友 →</a></p></header>';
+    if (!list.length) {
+      html += '<section class="card-block empty-state"><div class="empty-ico">💌</div><h2>還沒有好友</h2>' +
+        '<p class="muted">先加一位好友，就能開始私訊了。</p><a class="btn btn-primary" href="#/friends">前往好友頁面</a></section>';
+    } else {
+      html += '<section class="inbox">' + list.map(function (x) {
+        var p = byId[x.id], name = p ? displayName(p) : "（未知）";
+        var preview = x.c.last ? (x.c.last.sender === me ? "你：" : "") + x.c.last.body : "還沒有訊息，打聲招呼吧";
+        var time = x.c.last ? timeAgo(x.c.last.created_at) : "";
+        return '<a class="inbox-row' + (x.c.unread ? ' has-unread' : '') + '" href="#/dm/' + x.id + '">' +
+          '<div class="avatar">' + esc(name.charAt(0).toUpperCase()) + '</div>' +
+          '<div class="inbox-main"><strong>' + esc(name) + '</strong><span class="inbox-prev">' +
+          esc(preview.length > 40 ? preview.slice(0, 40) + "…" : preview) + '</span></div>' +
+          '<div class="inbox-side"><small>' + esc(time) + '</small>' +
+          (x.c.unread ? '<span class="unread-pill">' + x.c.unread + '</span>' : '') + '</div></a>';
+      }).join("") + '</section>';
+    }
+    root().innerHTML = html;
+  }
+
+  window.Social = { community: community, profile: profile, chat: chat, friends: friends, dm: dm, inbox: inbox };
 })();
