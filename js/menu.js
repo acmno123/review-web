@@ -102,10 +102,29 @@
       }
     });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
-    window.addEventListener("hashchange", close);
+    window.addEventListener("hashchange", function () { close(); setTimeout(updateBadge, 0); });
+    document.addEventListener("click", function () { setTimeout(updateBadge, 150); });
+    setInterval(updateBadge, 60000);
+    setTimeout(updateBadge, 300);
   }
 
-  window.Menu = { open: open, close: close };
+  // 三條槓按鈕上的紅點：顯示需要再複習的單元數量
+  function updateBadge() {
+    var btn = document.querySelector(".menu-btn");
+    if (!btn || !kit()) return;
+    var user = kit().currentUser();
+    var n = 0;
+    if (user) {
+      var data = kit().getData(user);
+      Object.keys(data.units).forEach(function (id) {
+        if (kit().reviewStatus(data.units[id]).key === "due") n += 1;
+      });
+    }
+    if (n > 0) { btn.classList.add("has-badge"); btn.setAttribute("data-badge", n > 9 ? "9+" : String(n)); }
+    else { btn.classList.remove("has-badge"); btn.removeAttribute("data-badge"); }
+  }
+
+  window.Menu = { open: open, close: close, updateBadge: updateBadge };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();

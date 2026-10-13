@@ -879,3 +879,33 @@ body.menu-open .menu-btn span:nth-child(3) { transform: translateY(-7.5px) rotat
 [data-theme="light"] .tile-name,
 [data-theme="light"] .stat .lbl,
 [data-theme="light"] .unit-list a { color: var(--ink); }
+
+/* =====================================================================
+ * 網站名稱：隨亮色或暗色背景變色
+ * ===================================================================== */
+.brand {
+  background: linear-gradient(110deg, #ffffff 0%, #c7d2fe 30%, #f5b5ff 60%, #8ef0ff 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 0 22px rgba(192,132,252,.35);
+  animation: brandFlow 7s ease-in-out infinite;
+}
+[data-theme="light"] .brand {
+  background: linear-gradient(110deg, #0f1433 0%, #4b3cc4 35%, #c2286e 70%, #0f7fa8 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
+}
+@keyframes brandFlow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) { .brand { animation: none; } }
+
+/* =====================================================================
+ * 三條槓上的待複習紅點
+ * ===================================================================== */
+.menu-btn.has-badge::after {
+  content: attr(data-badge); position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px;
+  padding: 0 6px; border-radius: 999px; display: grid; place-items: center; font-size: .72rem; font-weight: 900;
+  color: #fff; background: linear-gradient(120deg, #fb7185, #f59e0b); box-shadow: 0 6px 16px -4px rgba(251,113,133,.9);
+  animation: badgePop .5s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
