@@ -1,0 +1,63 @@
+/* =====================================================================
+ * 手機版強化：底部導覽列、觸控細節（桌面版不受影響）
+ * ===================================================================== */
+
+/* 底部導覽列：桌面版隱藏 */
+.m-tabbar { display: none; }
+
+@media (max-width: 760px) {
+  body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .topbar { top: 6px; padding: 8px 10px 8px 14px; }
+  .brand { font-size: 1.05rem; }
+
+  /* 底部導覽列：膠囊形、玻璃質感 */
+  .m-tabbar {
+    display: flex; position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom));
+    height: 66px; z-index: 70; padding: 6px; gap: 4px; align-items: stretch; justify-content: space-between;
+    border-radius: 24px; background: var(--glass-strong); border: 1px solid var(--line-strong);
+    box-shadow: 0 20px 50px -18px rgba(0,0,0,.7); backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  }
+  .m-tab {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border-radius: 18px; color: var(--ink-soft); text-decoration: none; transition: background .25s, color .25s, transform .2s;
+  }
+  .m-tab:active { transform: scale(.94); }
+  .m-tab .mi { font-size: 1.3rem; line-height: 1; }
+  .m-tab .ml { font-size: .68rem; font-weight: 800; }
+  .m-tab.active { color: #fff; background: var(--grad); box-shadow: 0 10px 22px -10px rgba(192,132,252,.9); }
+
+  /* 固定在底部的按鈕列要避開底部導覽列 */
+  .sticky-foot { bottom: calc(86px + env(safe-area-inset-bottom)); border-radius: 22px; }
+  .toasts { bottom: calc(92px + env(safe-area-inset-bottom)); top: auto; }
+
+  /* 觸控目標與輸入 */
+  .btn, .chip, .seg-btn { min-height: 44px; }
+  .btn { -webkit-tap-highlight-color: transparent; }
+  .opt { min-height: 60px; }
+  input, select, textarea { font-size: 16px; }
+
+  /* 清單與卡片：單欄，間距更舒服 */
+  .unit-list a { padding: 14px 16px; }
+  .person-card, .inbox-row, .friend-row { padding: 14px; }
+  .tile-grid, .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+  /* 工作桌面：扣掉底部導覽列的高度 */
+  .desk { height: calc(100vh - 190px - env(safe-area-inset-bottom)); min-height: 440px; }
+
+  /* 側邊選單：全寬，點擊區更大 */
+  .drawer-panel { width: 100%; }
+  .drawer-tile { padding: 14px; }
+
+  /* 表格：可以左右滑動 */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+}
+
+/* 小螢幕（約 360px） */
+@media (max-width: 380px) {
+  .m-tab .ml { font-size: .6rem; }
+  .m-tab .mi { font-size: 1.15rem; }
+}
+
+/* 嵌入模式不顯示底部導覽列 */
+.embed .m-tabbar { display: none !important; }
