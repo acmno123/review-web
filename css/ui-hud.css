@@ -1,0 +1,116 @@
+/* =====================================================================
+ * HUD 戰術介面：切角面板、角落框線、掃描線、數據讀數風格
+ * 最後載入；只改外觀，不動版面與功能。
+ * ===================================================================== */
+
+:root {
+  --hud-cyan: #39f3ff;
+  --hud-mag: #ff3ec8;
+  --hud-lime: #b6ff3b;
+  --hud-cut: 22px;
+}
+[data-theme="light"] { --hud-cyan: #0a84c8; --hud-mag: #d0208a; --hud-lime: #3c9a00; }
+
+/* 掃描線：全螢幕薄薄一層，像監視器 */
+html::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: .07;
+  background: repeating-linear-gradient(0deg, #000 0 1px, transparent 1px 3px);
+}
+[data-theme="light"] html::before { opacity: .035; }
+
+/* 背景：斜向的 HUD 格線 */
+body {
+  background-image:
+    linear-gradient(rgba(57,243,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57,243,255,.05) 1px, transparent 1px);
+  background-size: 48px 48px, 48px 48px;
+}
+
+/* 切角面板：四個角被切掉，角落有亮色框線 */
+.panel, .card-block, .chapter, .tile, .person-card, .stat, .q-card, .auth-box, .profile-hero, .unit-hero, .result-hero {
+  border-radius: 0 !important;
+  clip-path: polygon(
+    var(--hud-cut) 0, calc(100% - var(--hud-cut)) 0, 100% var(--hud-cut),
+    100% calc(100% - var(--hud-cut)), calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%, 0 calc(100% - var(--hud-cut)), 0 var(--hud-cut)
+  );
+  background-color: color-mix(in srgb, var(--glass-strong) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hud-cyan) 28%, transparent);
+  background-image:
+    linear-gradient(var(--hud-cyan), var(--hud-cyan)),
+    linear-gradient(var(--hud-cyan), var(--hud-cyan)),
+    linear-gradient(var(--hud-cyan), var(--hud-cyan)),
+    linear-gradient(var(--hud-cyan), var(--hud-cyan));
+  background-size: 18px 2px, 2px 18px, 18px 2px, 2px 18px;
+  background-position: 0 0, 0 0, 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+}
+/* 右上與左下的另一組框線 */
+.panel::after, .card-block::after, .tile::after, .stat::after {
+  content: ""; position: absolute; right: 0; top: 0; width: 18px; height: 18px; pointer-events: none;
+  border-top: 2px solid var(--hud-mag); border-right: 2px solid var(--hud-mag);
+}
+
+/* 標題：大寫、等寬感的讀數 */
+.page-head h1, .hero h1 { text-transform: uppercase; letter-spacing: .04em; font-weight: 900; }
+.hero h1 { background: linear-gradient(90deg, var(--hud-cyan), #fff, var(--hud-mag), var(--hud-cyan)); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: hudSweep 6s linear infinite; }
+@keyframes hudSweep { to { background-position: 300% 0; } }
+.eyebrow { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: .2em; color: var(--hud-lime); }
+.eyebrow::before { background: var(--hud-lime); box-shadow: 0 0 12px var(--hud-lime); }
+
+/* 按鈕：切角 + 霓虹 */
+.btn {
+  border-radius: 0 !important;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  text-transform: uppercase; letter-spacing: .06em; font-weight: 800;
+}
+.btn-primary {
+  background: linear-gradient(90deg, var(--hud-cyan), var(--hud-mag)) !important;
+  color: #05060f !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.25), 0 0 28px -4px var(--hud-mag);
+}
+.btn-primary:hover { box-shadow: 0 0 0 1px #fff, 0 0 40px -2px var(--hud-cyan); }
+[data-theme="light"] .btn-primary { color: #fff !important; }
+
+/* 進度條：分段的讀數條 */
+.bar, .tile-bar { background: repeating-linear-gradient(90deg, rgba(57,243,255,.18) 0 8px, transparent 8px 11px) !important; }
+.bar-fill { background: linear-gradient(90deg, var(--hud-cyan), var(--hud-lime)) !important; box-shadow: 0 0 14px var(--hud-cyan); }
+
+/* 選項：切角格子 */
+.opt { border-radius: 0 !important; clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
+.opt:hover:not(:disabled) { border-color: var(--hud-cyan) !important; box-shadow: 0 0 24px -6px var(--hud-cyan) !important; }
+.opt.good { border-color: var(--hud-lime) !important; box-shadow: 0 0 24px -6px var(--hud-lime) !important; }
+.opt.bad { border-color: var(--hud-mag) !important; box-shadow: 0 0 24px -6px var(--hud-mag) !important; }
+.opt-k { border-radius: 0 !important; background: linear-gradient(135deg, var(--hud-cyan), var(--hud-mag)) !important; color: #05060f !important; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* 標籤：HUD 讀數 */
+.badge, .rstatus, .lv, .chip, .seg-btn {
+  border-radius: 0 !important; text-transform: uppercase; letter-spacing: .08em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.chip.active, .seg-btn.on { background: linear-gradient(90deg, var(--hud-cyan), var(--hud-mag)) !important; color: #05060f !important; }
+
+/* 導覽：角落發光 */
+.topbar { border-radius: 0 !important; clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px); }
+.m-tabbar { border-radius: 0 !important; }
+.m-tab { border-radius: 0 !important; }
+.m-tab.active { background: linear-gradient(90deg, var(--hud-cyan), var(--hud-mag)) !important; color: #05060f !important; }
+
+/* 數據數字 */
+.stat .num, .map-counts .num, .score-big { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; color: var(--hud-cyan); text-shadow: 0 0 18px var(--hud-cyan); }
+
+/* 開機動畫 */
+#hud-boot {
+  position: fixed; inset: 0; z-index: 999; background: #03040a; display: flex; align-items: center; justify-content: center;
+  font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--hud-cyan); transition: opacity .6s, visibility .6s;
+}
+#hud-boot.done { opacity: 0; visibility: hidden; }
+#hud-boot pre { margin: 0; font-size: clamp(13px, 2.4vw, 17px); line-height: 1.8; white-space: pre-wrap; text-shadow: 0 0 10px var(--hud-cyan); }
+#hud-boot .ok { color: var(--hud-lime); text-shadow: 0 0 10px var(--hud-lime); }
+#hud-boot .cur { display: inline-block; width: 10px; height: 1em; background: var(--hud-cyan); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* 減少動態效果：關閉掃描線與閃爍 */
+@media (prefers-reduced-motion: reduce) {
+  .hero h1, .eyebrow::before, #hud-boot .cur { animation: none !important; }
+}
